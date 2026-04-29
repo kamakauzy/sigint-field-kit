@@ -99,6 +99,25 @@ sudo ./uninstall.sh --purge   # remove everything including ~/SIGINT and ~/Tools
 - **fm_monitor.grc** — Wideband FM voice receiver (146.52 MHz default)
 - **ism_scanner_433.grc** — ISM 433 MHz passive scanner for weather/sensor devices
 - **lora_watcher_915.grc** — LoRa / Meshtastic 915 MHz band watcher
+- **nbfm_scanner.grc** — FRS/GMRS/MURS channel scanner with squelch + audio (10 presets)
+- **quad_band_monitor.grc** — 4-dongle simultaneous VHF/ISM/UHF/LoRa tactical display
+
+See [`flowgraphs/README.md`](flowgraphs/README.md) for detailed per-graph instructions.
+
+### Automation Scripts (`scripts/`)
+
+Python scripts for unattended/headless signal collection, aligned to the F3EAD cycle:
+
+| Script | F3EAD Phase | Purpose |
+|--------|-------------|---------|
+| `squelch_recorder.py` | FIND | Auto-records IQ when signal exceeds squelch threshold |
+| `burst_detector.py` | FIND/FIX | Detects, timestamps, and logs short RF bursts |
+| `power_logger.py` | FIND | Continuous wideband power measurement via rtl_power |
+| `signal_alerter.py` | FIND/FIX | Desktop/audible/webhook alerts on frequency activity |
+| `baseline_diff.py` | ANALYZE | Compares two rtl_433 baselines — reports new/missing/changed signals |
+| `intel_packager.py` | DISSEMINATE | Generates one-page markdown intel summary from all logs |
+
+See [`scripts/README.md`](scripts/README.md) for full usage documentation.
 
 ## Tested On
 
