@@ -29,7 +29,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 try:
-    from gnuradio import gr, blocks, analog, osmosdr
+    from gnuradio import gr, blocks, analog
+    import osmosdr
 except ImportError:
     print("[FATAL] GNU Radio not found. Install gnuradio + gr-osmosdr.", file=sys.stderr)
     sys.exit(1)
