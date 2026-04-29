@@ -21,9 +21,14 @@ Also creates:
 
 ## Quick Start
 
+```bash
+git clone https://github.com/kamakauzy/sigint-field-kit.git
+cd sigint-field-kit
+chmod +x install.sh verify-setup.sh
+```
+
 ### RX-only (default)
 ```bash
-chmod +x install.sh
 sudo ./install.sh
 ```
 
