@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # ============================================================================
-#  SIGINT Course – DragonOS Student Laptop Setup Script
+#  sigint-field-kit – DragonOS SIGINT Toolkit Installer
 # ============================================================================
-#  Installs all required software for the 4-day SIGINT course.
-#  Target OS: DragonOS Focal / FocalX (Ubuntu 20.04/22.04 base)
+#  Installs SDR receivers, signal analysis tools, and field utilities
+#  on DragonOS Focal / FocalX (Ubuntu 20.04/22.04 base).
 #
 #  Usage:
-#    chmod +x install-sigint-course.sh
-#    sudo ./install-sigint-course.sh [OPTIONS]
+#    chmod +x install.sh
+#    sudo ./install.sh [OPTIONS]
 #
 #  Options:
-#    --student       Install student tools only (default)
-#    --instructor    Install student tools + instructor TX tools
+#    --rx-only       Install receive-only tools (default)
+#    --tx            Include transmit-capable tools (HackRF)
 #    --skip-update   Skip apt update/upgrade (faster re-runs)
 #    --help          Show this help message
 # ============================================================================
@@ -28,13 +28,13 @@ fail()  { echo -e "${RED}[FAIL]${NC}  $*"; }
 banner(){ echo -e "\n${BOLD}════════════════════════════════════════════════════════════${NC}"; echo -e "${BOLD}  $*${NC}"; echo -e "${BOLD}════════════════════════════════════════════════════════════${NC}\n"; }
 
 # ── Argument parsing ───────────────────────────────────────────────────────
-ROLE="student"
+ROLE="rx"
 SKIP_UPDATE=false
 
 for arg in "$@"; do
     case "$arg" in
-        --instructor)  ROLE="instructor" ;;
-        --student)     ROLE="student" ;;
+        --tx)          ROLE="tx" ;;
+        --rx-only)     ROLE="rx" ;;
         --skip-update) SKIP_UPDATE=true ;;
         --help|-h)
             head -17 "$0" | tail -14
@@ -54,7 +54,7 @@ ACTUAL_USER="${SUDO_USER:-$USER}"
 ACTUAL_HOME=$(eval echo "~$ACTUAL_USER")
 LOG_FILE="/tmp/sigint-install-$(date +%Y%m%d-%H%M%S).log"
 
-banner "SIGINT Course – DragonOS Installer"
+banner "sigint-field-kit – DragonOS Installer"
 info "Role:     $ROLE"
 info "User:     $ACTUAL_USER"
 info "Home:     $ACTUAL_HOME"
@@ -283,20 +283,20 @@ else
 fi
 track "KrakenSDR DOA (cloned)"
 
-# ── 8. Instructor-only TX tools ───────────────────────────────────────────
-if [[ "$ROLE" == "instructor" ]]; then
-    banner "8/8  Instructor TX Tools (HackRF, etc.)"
+# ── 8. TX tools (opt-in) ──────────────────────────────────────────────────
+if [[ "$ROLE" == "tx" ]]; then
+    banner "8/8  TX-Capable Tools (HackRF, etc.)"
 
     info "Installing HackRF tools..."
     apt-get install -y -qq hackrf libhackrf-dev 2>/dev/null && ok "HackRF tools" || warn "HackRF tools not available"
-    track "HackRF tools (TX – instructor only)"
+    track "HackRF tools (TX)"
 
     info "Installing hackrf GNURadio blocks..."
     apt-get install -y -qq gr-hackrf 2>/dev/null || true
     track "gr-hackrf"
 else
-    banner "8/8  Instructor TX Tools – SKIPPED (student mode)"
-    info "Run with --instructor to include HackRF TX tools"
+    banner "8/8  TX Tools – SKIPPED (rx-only mode)"
+    info "Run with --tx to include HackRF transmit tools"
 fi
 
 # ── Post-install configuration ─────────────────────────────────────────────
@@ -314,7 +314,7 @@ SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2832", MODE="0666"
 SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", MODE="0666", GROUP="plugdev"
 EOF
 
-if [[ "$ROLE" == "instructor" ]]; then
+if [[ "$ROLE" == "tx" ]]; then
 cat > /etc/udev/rules.d/20-hackrf.rules <<'EOF'
 # HackRF One
 SUBSYSTEM=="usb", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="6089", MODE="0666", GROUP="plugdev"
@@ -324,13 +324,13 @@ fi
 udevadm control --reload-rules && udevadm trigger
 ok "udev rules installed"
 
-# Create course working directory
-COURSE_DIR="$ACTUAL_HOME/SIGINT"
-run_as_user mkdir -p "$COURSE_DIR"/{baselines,recordings,logs,intel-packages}
-ok "Course directory structure created at $COURSE_DIR"
+# Create working directory
+WORK_DIR="$ACTUAL_HOME/SIGINT"
+run_as_user mkdir -p "$WORK_DIR"/{baselines,recordings,logs,intel-packages}
+ok "Working directory created at $WORK_DIR"
 
 # Create a baseline capture helper script
-cat > "$COURSE_DIR/capture-baseline.sh" <<'BASELINE_SCRIPT'
+cat > "$WORK_DIR/capture-baseline.sh" <<'BASELINE_SCRIPT'
 #!/usr/bin/env bash
 # Quick 30-minute baseline capture using rtl_433
 # Usage: ./capture-baseline.sh [duration_minutes] [output_name]
@@ -363,12 +363,12 @@ echo "Baseline capture complete: ${OUTDIR}/${OUTPUT}.csv"
 echo "Lines captured: $(wc -l < "${OUTDIR}/${OUTPUT}.csv" 2>/dev/null || echo 0)"
 BASELINE_SCRIPT
 
-chmod +x "$COURSE_DIR/capture-baseline.sh"
-chown -R "$ACTUAL_USER:$ACTUAL_USER" "$COURSE_DIR"
+chmod +x "$WORK_DIR/capture-baseline.sh"
+chown -R "$ACTUAL_USER:$ACTUAL_USER" "$WORK_DIR"
 ok "Baseline capture script created"
 
 # Disable WiFi and Bluetooth by default (EMCON posture)
-cat > "$COURSE_DIR/emcon-on.sh" <<'EMCON'
+cat > "$WORK_DIR/emcon-on.sh" <<'EMCON'
 #!/usr/bin/env bash
 # EMCON ON – Kill WiFi & Bluetooth to reduce RF footprint
 echo "[EMCON] Blocking WiFi and Bluetooth..."
@@ -379,7 +379,7 @@ rfkill list
 echo "[EMCON] WiFi and Bluetooth DISABLED. Run emcon-off.sh to restore."
 EMCON
 
-cat > "$COURSE_DIR/emcon-off.sh" <<'EMCON_OFF'
+cat > "$WORK_DIR/emcon-off.sh" <<'EMCON_OFF'
 #!/usr/bin/env bash
 # EMCON OFF – Restore WiFi & Bluetooth
 echo "[EMCON] Unblocking WiFi and Bluetooth..."
@@ -390,8 +390,8 @@ rfkill list
 echo "[EMCON] WiFi and Bluetooth RESTORED."
 EMCON_OFF
 
-chmod +x "$COURSE_DIR/emcon-on.sh" "$COURSE_DIR/emcon-off.sh"
-chown "$ACTUAL_USER:$ACTUAL_USER" "$COURSE_DIR/emcon-on.sh" "$COURSE_DIR/emcon-off.sh"
+chmod +x "$WORK_DIR/emcon-on.sh" "$WORK_DIR/emcon-off.sh"
+chown "$ACTUAL_USER:$ACTUAL_USER" "$WORK_DIR/emcon-on.sh" "$WORK_DIR/emcon-off.sh"
 ok "EMCON toggle scripts created"
 
 # ── Verification ───────────────────────────────────────────────────────────
@@ -442,8 +442,8 @@ for pkg in urh sigmf meshtastic; do
     fi
 done
 
-# Instructor-specific checks
-if [[ "$ROLE" == "instructor" ]]; then
+# TX-mode checks
+if [[ "$ROLE" == "tx" ]]; then
     for pair in "hackrf_transfer:hackrf_transfer" "hackrf_info:hackrf_info"; do
         name="${pair%%:*}"
         cmd="${pair##*:}"
@@ -465,7 +465,7 @@ for item in "${INSTALLED_ITEMS[@]}"; do
 done
 
 echo ""
-echo -e "Course directory:  ${BOLD}$COURSE_DIR${NC}"
+echo -e "Working directory:  ${BOLD}$WORK_DIR${NC}"
 echo "  baselines/       – rtl_433 CSV/JSON baseline exports"
 echo "  recordings/      – URH / GQRX signal recordings"
 echo "  logs/            – Signal log templates and notes"
@@ -482,6 +482,6 @@ if [[ $PASS -lt $TOTAL ]]; then
     warn "DragonOS may already include some tools – check the application menu."
 fi
 
-echo -e "${GREEN}${BOLD}Setup complete.${NC} Reboot recommended before class."
+echo -e "${GREEN}${BOLD}Setup complete.${NC} Reboot recommended before first use."
 echo -e "After reboot: plug in RTL-SDR dongle and run ${BOLD}rtl_test${NC} to verify."
 echo ""

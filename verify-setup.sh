@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ============================================================================
-#  SIGINT Course – Post-Install Verification
+#  sigint-field-kit – Post-Install Verification
 # ============================================================================
-#  Run this WITHOUT sudo to verify all course tools are accessible.
+#  Run this WITHOUT sudo to verify all tools are accessible.
 #  Optionally tests RTL-SDR dongle connectivity.
 #
 #  Usage:  ./verify-setup.sh [--dongle]
@@ -48,7 +48,7 @@ check_python() {
 }
 
 echo -e "${BOLD}╔══════════════════════════════════════════════════════╗${NC}"
-echo -e "${BOLD}║  SIGINT Course – Setup Verification                  ║${NC}"
+echo -e "${BOLD}║  sigint-field-kit – Setup Verification                ║${NC}"
 echo -e "${BOLD}╚══════════════════════════════════════════════════════╝${NC}"
 
 # ── SDR receivers ──────────────────────────────────────────────────────────
@@ -107,15 +107,15 @@ else
     WARN_COUNT=$((WARN_COUNT+1))
 fi
 
-# ── Instructor tools (only if present) ────────────────────────────────────
+# ── TX tools (only if present) ────────────────────────────────────────────────
 if command -v hackrf_transfer &>/dev/null; then
-    hdr "Instructor TX Tools"
+    hdr "TX Tools (HackRF)"
     check_binary "hackrf_transfer" "hackrf_transfer"
     check_binary "hackrf_info" "hackrf_info"
 fi
 
-# ── Course directory ───────────────────────────────────────────────────────
-hdr "Course Directory Structure"
+# ── Working directory ───────────────────────────────────────────────────────
+hdr "Working Directory"
 for dir in baselines recordings logs intel-packages; do
     if [[ -d "$HOME/SIGINT/$dir" ]]; then
         ok "~/SIGINT/$dir/"
@@ -179,9 +179,9 @@ echo -e "  ${YELLOW}Warnings:${NC} $WARN_COUNT"
 echo -e "${BOLD}════════════════════════════════════════════════════════${NC}"
 
 if [[ $FAIL -eq 0 ]]; then
-    echo -e "\n  ${GREEN}${BOLD}All checks passed. Laptop is ready for class.${NC}\n"
+    echo -e "\n  ${GREEN}${BOLD}All checks passed. Ready to go.${NC}\n"
     exit 0
 else
-    echo -e "\n  ${YELLOW}${BOLD}$FAIL item(s) need attention before class.${NC}\n"
+    echo -e "\n  ${YELLOW}${BOLD}$FAIL item(s) need attention.${NC}\n"
     exit 1
 fi

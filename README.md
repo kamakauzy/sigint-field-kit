@@ -1,7 +1,6 @@
-# SIGINT Course – DragonOS Setup
+# sigint-field-kit
 
-Automated installer for the 4-day SIGINT course laptop environment.  
-Targets **DragonOS Focal / FocalX** (Ubuntu-based).
+One-script installer for a SIGINT / SDR field environment on **DragonOS Focal / FocalX** (Ubuntu-based).
 
 ## What Gets Installed
 
@@ -12,30 +11,30 @@ Targets **DragonOS Focal / FocalX** (Ubuntu-based).
 | **Decoding / Analysis** | rtl_433, URH, SigMF, inspectrum, multimon-ng, sox |
 | **Meshtastic / LoRa** | Meshtastic CLI, pyLoRa |
 | **Advanced (cloned)** | FISSURE, KrakenSDR DOA |
-| **Instructor-only** | HackRF tools, gr-hackrf (with `--instructor` flag) |
+| **TX tools** | HackRF tools, gr-hackrf (opt-in with `--tx`) |
 | **RTL-SDR** | Drivers, udev rules, DVB kernel blacklist |
 
 Also creates:
-- `~/SIGINT/` directory with `baselines/`, `recordings/`, `logs/`, `intel-packages/`
+- `~/SIGINT/` working directory with `baselines/`, `recordings/`, `logs/`, `intel-packages/`
 - `capture-baseline.sh` — 30-min rtl_433 multi-frequency baseline capture
 - `emcon-on.sh` / `emcon-off.sh` — WiFi/Bluetooth kill switches
 
 ## Quick Start
 
-### Student laptop
+### RX-only (default)
 ```bash
-chmod +x install-sigint-course.sh
-sudo ./install-sigint-course.sh
+chmod +x install.sh
+sudo ./install.sh
 ```
 
-### Instructor laptop
+### Include TX tools (HackRF)
 ```bash
-sudo ./install-sigint-course.sh --instructor
+sudo ./install.sh --tx
 ```
 
 ### Skip apt update (faster re-run)
 ```bash
-sudo ./install-sigint-course.sh --skip-update
+sudo ./install.sh --skip-update
 ```
 
 ### Verify installation
@@ -50,17 +49,17 @@ chmod +x verify-setup.sh
 1. **Reboot** after install (udev rules + group membership take effect)
 2. Plug in RTL-SDR dongle → run `rtl_test` to confirm detection
 3. Run `./verify-setup.sh --dongle` to validate everything
-4. Run `~/SIGINT/capture-baseline.sh` to test a 30-min baseline capture
+4. Run `~/SIGINT/capture-baseline.sh` to test a baseline capture
 5. FISSURE requires a separate install step: `cd ~/Tools/FISSURE && ./install`
 
-## Course Directory Structure
+## Working Directory
 
 ```
 ~/SIGINT/
 ├── baselines/          # rtl_433 CSV/JSON exports
 ├── recordings/         # URH / GQRX signal recordings
-├── logs/               # Signal log templates, field notes
-├── intel-packages/     # F3EAD deliverables
+├── logs/               # Signal logs and field notes
+├── intel-packages/     # F3EAD intelligence products
 ├── capture-baseline.sh # Quick baseline helper
 ├── emcon-on.sh         # Kill WiFi/BT
 └── emcon-off.sh        # Restore WiFi/BT
@@ -68,7 +67,7 @@ chmod +x verify-setup.sh
 
 ## Notes
 
-- Students are **RX-only** — HackRF TX tools are instructor-only (`--instructor`)
+- Default mode is **receive-only**; transmit tools require `--tx`
 - DragonOS may already include some tools; the script skips what's already present
 - Full install log saved to `/tmp/sigint-install-*.log`
 - FISSURE and KrakenSDR are cloned but require their own install steps for full functionality
