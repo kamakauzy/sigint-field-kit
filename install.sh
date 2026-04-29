@@ -440,7 +440,7 @@ done
 info "Checking Python packages..."
 for pkg in urh sigmf meshtastic; do
     TOTAL=$((TOTAL + 1))
-    if python3 -c "import $pkg" 2>/dev/null || pipx list 2>/dev/null | grep -q "$pkg"; then
+    if python3 -c "import $pkg" 2>/dev/null || run_as_user pipx list 2>/dev/null | grep -q "$pkg"; then
         ok "Python: $pkg"
         PASS=$((PASS + 1))
     else
