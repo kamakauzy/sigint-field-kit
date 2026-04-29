@@ -76,3 +76,52 @@ chmod +x verify-setup.sh
 - DragonOS may already include some tools; the script skips what's already present
 - Full install log saved to `/tmp/sigint-install-*.log`
 - FISSURE and KrakenSDR are cloned but require their own install steps for full functionality
+
+## Uninstall
+
+```bash
+sudo ./uninstall.sh           # remove packages, keep ~/SIGINT data
+sudo ./uninstall.sh --purge   # remove everything including ~/SIGINT and ~/Tools clones
+```
+
+## Included Resources
+
+### Reference Cards (`reference/`)
+- **F3EAD Cycle** — Find → Fix → Finish → Exploit → Analyze → Disseminate quick reference
+- **Signal Types** — Identification table for voice, data, digital, beacon, and WiFi signals
+- **Direction Finding** — Body-block, Yagi sweep, cross-bearing, and KrakenSDR techniques
+- **Field Checklist** — Step-by-step execution checklist for signal collection operations
+
+### Templates (`templates/`)
+- **Signal Log** — Per-session log with classification key and threat levels
+
+### Flow Graphs (`flowgraphs/`)
+- **fm_monitor.grc** — Wideband FM voice receiver (146.52 MHz default)
+- **ism_scanner_433.grc** — ISM 433 MHz passive scanner for weather/sensor devices
+- **lora_watcher_915.grc** — LoRa / Meshtastic 915 MHz band watcher
+
+## Tested On
+
+| OS | Base | Status |
+|----|------|--------|
+| DragonOS FocalX R7+ | Ubuntu 22.04 | Primary target |
+| DragonOS Focal | Ubuntu 20.04 | Supported |
+| Ubuntu 22.04 LTS | — | Works (no pre-installed SDR tools) |
+| Ubuntu 20.04 LTS | — | Works (no pre-installed SDR tools) |
+
+Contributions welcome — open an issue if you test on another distro.
+
+## Docker (test only)
+
+Build and test the installer in a clean container without hardware:
+
+```bash
+docker build -t sigint-field-kit .
+docker run -it sigint-field-kit ./verify-setup.sh
+```
+
+> Note: GUI apps and USB SDR access require host passthrough and are not available inside the container. This is for validating the install logic only.
+
+## License
+
+[The Unlicense](LICENSE) — public domain. Do whatever you want with it.

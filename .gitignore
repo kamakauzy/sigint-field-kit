@@ -1,0 +1,41 @@
+# SDR captures & recordings
+*.iq
+*.raw
+*.cu8
+*.cs8
+*.cf32
+*.cs16
+*.wav
+*.mp3
+
+# Baseline exports
+*.csv
+*.json
+
+# Logs
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+
+# GNURadio build artifacts
+*.pyc
+*.pyo
+
+# Compiled objects
+*.o
+*.so
+*.a
