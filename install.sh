@@ -231,7 +231,9 @@ track "URH (Universal Radio Hacker)"
 
 # --- SigMF tools ---
 info "Installing SigMF tools..."
-pip3 install sigmf 2>/dev/null && ok "SigMF" || warn "SigMF install failed"
+pip3 install --break-system-packages sigmf 2>/dev/null && ok "SigMF" || {
+    pip3 install sigmf 2>/dev/null && ok "SigMF (pip3)" || warn "SigMF install failed"
+}
 track "SigMF tools"
 
 # --- inspectrum (visual signal analysis) ---
@@ -248,11 +250,15 @@ track "multimon-ng"
 banner "6/8  Meshtastic & LoRa Tools"
 
 info "Installing Meshtastic CLI..."
-pip3 install meshtastic 2>/dev/null && ok "Meshtastic CLI" || warn "Meshtastic CLI failed"
+run_as_user pipx install meshtastic 2>/dev/null && ok "Meshtastic CLI (pipx)" || {
+    pip3 install --break-system-packages meshtastic 2>/dev/null && ok "Meshtastic CLI (pip3)" || warn "Meshtastic CLI failed"
+}
 track "Meshtastic CLI"
 
 info "Installing LoRa support packages..."
-pip3 install pyLoRa 2>/dev/null && ok "pyLoRa" || warn "pyLoRa not available"
+pip3 install --break-system-packages pyLoRa 2>/dev/null && ok "pyLoRa" || {
+    pip3 install pyLoRa 2>/dev/null && ok "pyLoRa (pip3)" || warn "pyLoRa not available"
+}
 track "LoRa tools"
 
 # ── 7. FISSURE & KrakenSDR (optional advanced) ────────────────────────────
