@@ -118,6 +118,8 @@ Python scripts for unattended/headless signal collection, aligned to the F3EAD c
 | `voice_scanner.sh` | FIND/FIX | Scanning voice recorder — squelch-gated WAV capture across channels |
 | `sigint_adaptive.sh` | FIND/FIX/FINISH | Adaptive collector — baseline→detect anomaly→target with voice capture |
 | `baseline_diff.py` | ANALYZE | Compares two rtl_433 baselines — reports new/missing/changed signals |
+| `freq_identify.py` | ANALYZE | Identifies signals by frequency from local database (399+ entries) |
+| `build_freq_db.py` | MAINTAIN | Builds/updates frequency DB from rtl_433 + Artemis + seed data |
 | `intel_packager.py` | DISSEMINATE | Generates one-page markdown intel summary from all logs |
 
 See [`scripts/README.md`](scripts/README.md) for full usage documentation.

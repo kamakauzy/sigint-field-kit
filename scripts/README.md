@@ -28,8 +28,12 @@ Headless Python scripts for unattended signal collection and analysis. Each scri
 │  FINISH      sigint_adaptive.sh ───── targeted collection on anomalies  │
 │                                           │                             │
 │  ANALYZE     baseline_diff.py ─────── new/missing/changed signals       │
+│              freq_identify.py ─────── signal ID from frequency database  │
 │                                           │                             │
 │  DISSEMINATE intel_packager.py ────── one-page intel summary (.md)      │
+│              freq_identify.py ─────── annotate report with signal names  │
+│                                                                         │
+│  MAINTAIN    build_freq_db.py ─────── build/update frequency database   │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -263,6 +267,89 @@ Ingests all collection logs and produces a formatted one-page markdown intellige
 4. DF Bearings + triangulation candidates
 5. Baseline Comparison (embedded diff)
 6. Analyst Recommendations (auto-generated action items)
+
+---
+
+## build_freq_db.py — Frequency Database Builder
+
+Pulls from multiple public sources and builds a local SQLite frequency identification database. Run once to seed, re-run anytime to update with latest device lists.
+
+**Dependencies:** Python 3 (stdlib only — uses urllib, sqlite3, json, re)
+
+```bash
+# Full build (fetches rtl_433 + Artemis from GitHub)
+./build_freq_db.py
+
+# Offline mode (seed data only, no network)
+./build_freq_db.py --offline
+
+# Custom output path
+./build_freq_db.py --db /var/lib/recon-raven/databases/freq_db.sqlite
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--db` | `data/freq_db.sqlite` | Output SQLite path |
+| `--offline` | off | Skip network fetches, use seed only |
+
+**Data sources:**
+1. **Seed allocations** (86 entries) — US/EU band plan: VHF, UHF, 800 MHz, ISM, airband, marine, ham, public safety, satellite
+2. **rtl_433 devices** (313+ entries) — Every protocol rtl_433 can decode (weather stations, TPMS, keyfobs, sensors)
+3. **Artemis signal DB** (500+ entries when available) — Community-maintained RF signal encyclopedia
+
+**Output:** `data/freq_db.sqlite` (~108 KB)
+
+The DB is committed to the repo so it works offline immediately. `install.sh` re-builds it on install/update to pull the latest device lists.
+
+---
+
+## freq_identify.py — Frequency Identification Tool
+
+Looks up frequencies against the local database. Identifies what service/protocol operates at a given MHz value. Can annotate intel reports in-place.
+
+**Dependencies:** Python 3 (stdlib only), `data/freq_db.sqlite`
+
+```bash
+# Identify single frequency
+./freq_identify.py 463.000
+
+# Multiple frequencies
+./freq_identify.py 463.000 145.500 433.920 857.478
+
+# Identify all frequencies in a CSV (reads freq_mhz column)
+./freq_identify.py --csv /var/lib/recon-raven/logs/alerts.csv
+
+# Annotate an intel report in-place (adds signal names after MHz values)
+./freq_identify.py --annotate intel_report.md
+
+# JSON output for scripting
+./freq_identify.py 463.000 --json
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| (positional) | — | Frequency/frequencies in MHz |
+| `--csv` | — | CSV file with `freq_mhz` column |
+| `--annotate` | — | Markdown file to annotate in-place |
+| `--json` | off | Output as JSON (for piping) |
+| `--db` | `data/freq_db.sqlite` | Database path |
+
+**Example output:**
+```
+463.000 MHz:
+  GMRS/UHF Business (463.000–463.200 MHz, NFM, commercial)
+    └─ GMRS repeater outputs / UHF business
+  UHF Business/Public Safety (462.000–470.000 MHz, NFM, commercial)
+    └─ Mixed commercial/PS
+
+857.478 MHz:
+  P25 Trunked (common) (857.000–860.000 MHz, P25, public_safety)
+    └─ Common P25 trunked allocation
+```
+
+**Annotation mode** transforms this in a report:
+- Before: `463.000 MHz — 66 event(s)`
+- After: `463.000 MHz (GMRS/UHF Business) — 66 event(s)`
 
 ---
 
