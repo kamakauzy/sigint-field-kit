@@ -17,9 +17,12 @@ Headless Python scripts for unattended signal collection and analysis. Each scri
 │              burst_detector.py ────── burst log (CSV)                    │
 │              power_logger.py ──────── power heatmap (CSV)               │
 │              signal_alerter.py ────── threshold alerts (CSV)            │
+│              sigint_sweep.sh ──────── multi-band spectrum survey (CSV)  │
+│              voice_scanner.sh ─────── squelch-gated WAV recordings      │
 │                                           │                             │
 │  FIX         burst_detector.py ────── pattern-of-life timing            │
 │              signal_alerter.py ────── frequency watch                    │
+│              voice_scanner.sh ─────── voice capture for ID/content      │
 │                                           │                             │
 │  ANALYZE     baseline_diff.py ─────── new/missing/changed signals       │
 │                                           │                             │
@@ -257,6 +260,89 @@ Ingests all collection logs and produces a formatted one-page markdown intellige
 4. DF Bearings + triangulation candidates
 5. Baseline Comparison (embedded diff)
 6. Analyst Recommendations (auto-generated action items)
+
+---
+
+## sigint_sweep.sh — Multi-Band Spectrum Sweep
+
+Long-duration unattended spectrum survey across VHF, UHF, and 800 MHz P25 bands. Uses `rtl_power` to cycle through all 3 bands, building a temporal heatmap of activity. Designed for overnight pattern-of-life collection.
+
+**Dependencies:** rtl_power (part of rtl-sdr package), RTL-SDR dongle
+
+```bash
+# Default — 8 hours
+./sigint_sweep.sh
+
+# 12-hour collection
+./sigint_sweep.sh 12
+
+# Custom output directory
+./sigint_sweep.sh 8 /tmp/sweep_data
+```
+
+| Arg | Default | Description |
+|-----|---------|-------------|
+| `$1` | 8 | Duration in hours |
+| `$2` | /var/lib/recon-raven/logs | Output directory |
+
+**Bands collected:**
+
+| Band | Range | Bin Size | Targets |
+|------|-------|----------|---------|
+| VHF | 136–174 MHz | 25 kHz | Baofengs, MURS, marine, ham 2m, public safety |
+| UHF | 400–470 MHz | 50 kHz | GMRS/FRS, business, ISM 433 |
+| 800 MHz | 806–870 MHz | 50 kHz | P25 trunked, public safety, security |
+
+**Cycle time:** ~33 seconds for all 3 bands  
+**Output:** 3 CSV files (rtl_power format) — one per band, timestamped
+
+Feed output into `baseline_diff.py` or `intel_packager.py` for analysis, or visualize with `heatmap.py`.
+
+---
+
+## voice_scanner.sh — Scanning Voice Recorder
+
+Cycles through known active voice frequencies with squelch-gated recording. When signal breaks squelch during the dwell window, records audio to WAV. The "poor man's scanner" for a single RTL-SDR.
+
+**Dependencies:** rtl_fm (part of rtl-sdr package), sox, RTL-SDR dongle
+
+```bash
+# Default — 8 hours
+./voice_scanner.sh
+
+# 12-hour overnight recording
+./voice_scanner.sh 12
+```
+
+| Arg | Default | Description |
+|-----|---------|-------------|
+| `$1` | 8 | Duration in hours |
+
+**Configuration (edit in script):**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DWELL_SEC` | 4 | Seconds to listen per channel |
+| `SQUELCH_LEVEL` | 40 | rtl_fm squelch (higher = tighter) |
+| `CHANNELS` | 10 presets | Freq:mode:label array |
+| `OUTPUT_DIR` | /var/lib/recon-raven/recordings | WAV output path |
+
+**Default channel list (edit for your locale):**
+- 153.64 MHz — VHF Business
+- 159.07 MHz — VHF Public Safety
+- 145.50 MHz — 2m Ham Repeater
+- 443.40 MHz — 70cm Ham Voice
+- 446.20 MHz — FRS Channel 1
+- 454.60 MHz — UHF Business
+- 463.00 MHz — GMRS Repeater
+- 465.80 MHz — UHF Business
+- 468.60 MHz — GMRS/Business
+- 857.48 MHz — P25 Voice
+
+**Cycle time:** ~40 seconds (10 channels × 4s dwell)  
+**Output:** Timestamped WAV files + activity log
+
+**Limitations:** Single SDR can only monitor one frequency at a time. Transmissions on non-current channels are missed. Low-traffic overnight windows minimize this. For full coverage, use multiple SDRs.
 
 ---
 

@@ -114,6 +114,8 @@ Python scripts for unattended/headless signal collection, aligned to the F3EAD c
 | `burst_detector.py` | FIND/FIX | Detects, timestamps, and logs short RF bursts |
 | `power_logger.py` | FIND | Continuous wideband power measurement via rtl_power |
 | `signal_alerter.py` | FIND/FIX | Desktop/audible/webhook alerts on frequency activity |
+| `sigint_sweep.sh` | FIND | Multi-band spectrum sweep (VHF/UHF/800) for pattern-of-life |
+| `voice_scanner.sh` | FIND/FIX | Scanning voice recorder — squelch-gated WAV capture across channels |
 | `baseline_diff.py` | ANALYZE | Compares two rtl_433 baselines — reports new/missing/changed signals |
 | `intel_packager.py` | DISSEMINATE | Generates one-page markdown intel summary from all logs |
 
