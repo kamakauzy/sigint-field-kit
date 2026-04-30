@@ -416,38 +416,220 @@ Cycles through known active voice frequencies with squelch-gated recording. When
 
 ---
 
-## Chaining Examples
+## Pipeline: How One Script Feeds the Next
 
-```bash
-# Full unattended collection session
-./burst_detector.py -f 433.92 --record --log ~/SIGINT/logs/bursts.csv &
-./signal_alerter.py -f 433.92 -q --cooldown 60 &
-./power_logger.py -l 430 -u 440 --duration 3600 &
-wait
+The scripts form a pipeline where each tool's output becomes the next tool's input.
+Here's the **complete data flow** with real filenames from an actual 31-hour collection:
 
-# After collection — analyze and report
-./baseline_diff.py baselines/before.csv baselines/after.csv -o ~/SIGINT/logs/diff.txt
-./intel_packager.py --all ~/SIGINT/logs/ --title "Night Watch" -o ~/SIGINT/intel-packages/report.md
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  COLLECT           ANALYZE              REPORT                               │
+│                                                                              │
+│  sigint_sweep.sh ──→ sigint_vhf_136-174MHz_20260429-113905.csv              │
+│                   ──→ sigint_uhf_400-470MHz_20260429-113905.csv              │
+│                   ──→ sigint_p25_806-870MHz_20260429-113905.csv              │
+│                        │                                                     │
+│                        ▼                                                     │
+│              sigint_adaptive.sh (reads sweep → builds baseline)              │
+│                        │                                                     │
+│                        ├──→ spectrum_baseline.json                           │
+│                        ├──→ adaptive_20260430-101009.log (anomalies)         │
+│                        └──→ target_137.357MHz_20260430-104251.wav            │
+│                                                                              │
+│  burst_detector.py ──→ bursts_68b237dc_20260429-135535.csv                  │
+│                                                                              │
+│  voice_scanner.sh ───→ 70cm_Ham_Voice_20260430-081435.wav                   │
+│                   ───→ voice_scanner_20260429-212635.log                     │
+│                                                                              │
+│  baseline_diff.py ──→ diff_report.txt (new/missing/changed signals)         │
+│                                                                              │
+│  intel_packager.py ─← (all of the above)                                    │
+│                   ──→ intel_report_20260430.md                               │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
+### Step 1: Spectrum Survey (FIND)
+
+Collect raw spectrum data across all bands. Run overnight unattended.
+
 ```bash
-# Alert triggers recording on activity
-./signal_alerter.py -f 462.5625 --command "python3 scripts/squelch_recorder.py -f 462.5625 --max 30"
+# 12-hour sweep → produces 3 CSV files per band
+./sigint_sweep.sh 12
+
+# Output files (rtl_power CSV format):
+#   /var/lib/recon-raven/logs/sigint_vhf_136-174MHz_20260429-113905.csv  (5.5 MB)
+#   /var/lib/recon-raven/logs/sigint_uhf_400-470MHz_20260429-113905.csv  (5.3 MB)
+#   /var/lib/recon-raven/logs/sigint_p25_806-870MHz_20260429-113905.csv  (4.8 MB)
+```
+
+### Step 2: Build Baseline & Detect Anomalies (FIX)
+
+The adaptive collector reads sweep data, averages it into a baseline, then loops
+comparing new sweeps against that baseline. Anything +8 dB over baseline triggers
+targeted collection.
+
+```bash
+# First run — build baseline from 3 averaged sweeps, then monitor 8 hours
+./sigint_adaptive.sh 8 build
+
+# Output:
+#   /var/lib/recon-raven/baselines/spectrum_baseline.json   (62 frequencies)
+#   /var/lib/recon-raven/logs/adaptive_20260430-101009.log  (anomaly detections)
+#   /var/lib/recon-raven/recordings/target_137.357MHz_20260430-104251.wav
+```
+
+**Sample log output** (real data from Apr 30):
+```
+[2026-04-30 11:41:53] Cycle 93 | ANOMALIES DETECTED:
+[2026-04-30 11:41:53]   → 153.643 MHz | power: 13.48 dB | +35.68 dB over baseline
+[2026-04-30 11:42:03]   → 156.357 MHz | power: 5.95 dB | +27.05 dB over baseline
+[2026-04-30 11:42:13]   → 463.000 MHz | power: 3.25 dB | +18.05 dB over baseline
+[2026-04-30 11:49:36] Cycle 100 | No anomalies | Captures: 1
+```
+
+### Step 3: Burst Detection (parallel FIND)
+
+Run alongside the adaptive collector to catch short data bursts (LoRa, FSK, ISM).
+
+```bash
+# ISM 433 MHz burst detection — runs in background
+./burst_detector.py -f 433.92 --record --log ~/SIGINT/logs/bursts.csv &
+
+# Output CSV (real data):
+#   bursts_68b237dc_20260429-135535.csv
+#   Contents:
+#     timestamp_utc,freq_mhz,duration_ms,peak_power_db,iq_file
+#     2026-04-29 13:56:36.785,433.9200,60018.1,-16.2,
+#     2026-04-29 13:56:48.231,433.9200,11425.4,-16.6,
+```
+
+### Step 4: Voice Recording (parallel FIND)
+
+Cycle through known voice frequencies for human intelligence.
+
+```bash
+# 8-hour overnight voice scan
+./voice_scanner.sh 8
+
+# Output:
+#   /var/lib/recon-raven/recordings/70cm_Ham_Voice_20260430-081435.wav
+#   /var/lib/recon-raven/logs/voice_scanner_20260429-212635.log
+```
+
+### Step 5: Baseline Comparison (ANALYZE)
+
+Compare yesterday's spectrum snapshot to today's.
+
+```bash
+# Compare two rtl_433 baselines
+./baseline_diff.py baselines/day1.csv baselines/day2.csv -o ~/SIGINT/logs/diff_report.txt
+
+# Output: text report listing NEW, DISAPPEARED, POWER_CHANGED, RATE_CHANGED signals
+```
+
+### Step 6: Generate Intelligence Report (DISSEMINATE)
+
+Feed ALL collected data into `intel_packager.py` for a single-page summary.
+
+```bash
+# Option A: specify each file explicitly
+./intel_packager.py \
+  --bursts /var/lib/recon-raven/logs/bursts_68b237dc_20260429-135535.csv \
+  --alerts /tmp/alerts.csv \
+  --baseline-diff /var/lib/recon-raven/logs/diff_report.txt \
+  --title "OP BASELINE" \
+  --location "Home QTH / Grid EM73" \
+  -o /var/lib/recon-raven/logs/intel_report_20260430.md
+
+# Option B: auto-discover all logs in a directory
+./intel_packager.py \
+  --all /var/lib/recon-raven/logs/ \
+  --title "OP BASELINE" \
+  -o intel_report.md
+```
+
+**Sample output** (real data from 31-hour collection):
+```markdown
+# SIGINT Intelligence Summary
+
+**Generated:** 2026-04-30 16:54:53 UTC
+**Operation:** OP BASELINE
+**Location:** Home QTH / Grid EM73
+
+## Executive Summary
+- **4** burst(s) detected across **16** frequency/frequencies
+- **133** threshold alert(s) triggered
+- Collection window: `2026-04-29 04:17:14` → `2026-04-30 11:54:23`
+
+**Most active frequencies:**
+  - 463.000 MHz — 66 event(s)
+  - 145.500 MHz — 17 event(s)
+  - 409.800 MHz — 14 event(s)
+  - 857.478 MHz — 12 event(s)
+
+## Analyst Recommendations
+- [ ] Prioritize collection on **433.9200 MHz** (4 bursts)
+- [ ] Consider tightening squelch threshold (high alert volume)
+```
+
+---
+
+## Quick-Start: Full Unattended Session
+
+```bash
+# === Night before deployment ===
+
+# 1. Build baseline (first time only, ~2 min)
+./sigint_adaptive.sh 1 build
+
+# 2. Start adaptive collector (runs 12 hours, backgrounds itself)
+nohup ./sigint_adaptive.sh 12 > /dev/null 2>&1 &
+echo "Adaptive PID: $!"
+
+# === Next morning ===
+
+# 3. Check what was collected
+ls -la /var/lib/recon-raven/recordings/target_*.wav
+tail -20 /var/lib/recon-raven/logs/adaptive_*.log
+
+# 4. Generate report from everything collected
+./intel_packager.py \
+  --all /var/lib/recon-raven/logs/ \
+  --title "Overnight Collection" \
+  -o /var/lib/recon-raven/logs/intel_report.md
+
+cat /var/lib/recon-raven/logs/intel_report.md
 ```
 
 ---
 
 ## Output File Locations
 
-All scripts default to the `~/SIGINT/` working directory:
+All scripts default to `/var/lib/recon-raven/` on the collection box:
 
 ```
+/var/lib/recon-raven/
+├── recordings/               ← voice captures + targeted anomaly recordings
+│   ├── target_137.357MHz_20260430-104251.wav     (adaptive collector)
+│   ├── 70cm_Ham_Voice_20260430-081435.wav        (voice scanner)
+│   └── capture_433.92MHz_*.cf32                  (squelch recorder IQ)
+├── logs/                     ← all CSV/log output
+│   ├── adaptive_20260430-101009.log              (adaptive anomaly log)
+│   ├── bursts_68b237dc_20260429-135535.csv       (burst detector)
+│   ├── sigint_vhf_136-174MHz_20260429-113905.csv (spectrum sweep)
+│   ├── sigint_uhf_400-470MHz_20260429-113905.csv
+│   ├── sigint_p25_806-870MHz_20260429-113905.csv
+│   ├── voice_scanner_20260429-212635.log         (voice scanner activity)
+│   ├── intel_report_20260430.md                  (packaged intel report)
+│   └── diff_report.txt                           (baseline comparison)
+└── baselines/                ← spectrum fingerprints
+    └── spectrum_baseline.json                    (62 freq averages)
+```
+
+For GNU Radio scripts (squelch_recorder, burst_detector), the default is `~/SIGINT/`:
+```
 ~/SIGINT/
-├── recordings/    ← squelch_recorder.py, burst_detector.py IQ files
+├── recordings/    ← IQ captures (.cf32)
 ├── logs/          ← burst CSVs, alert CSVs, power logger data
-│   ├── bursts.csv
-│   ├── alerts.csv
-│   └── power_*.csv
-├── baselines/     ← rtl_433 baseline CSVs for diff comparison
-└── intel-packages/ ← intel_packager.py reports
+└── baselines/     ← rtl_433 baseline CSVs for diff comparison
 ```
