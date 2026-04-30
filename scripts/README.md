@@ -23,6 +23,9 @@ Headless Python scripts for unattended signal collection and analysis. Each scri
 │  FIX         burst_detector.py ────── pattern-of-life timing            │
 │              signal_alerter.py ────── frequency watch                    │
 │              voice_scanner.sh ─────── voice capture for ID/content      │
+│              sigint_adaptive.sh ───── baseline anomaly detection         │
+│                                           │                             │
+│  FINISH      sigint_adaptive.sh ───── targeted collection on anomalies  │
 │                                           │                             │
 │  ANALYZE     baseline_diff.py ─────── new/missing/changed signals       │
 │                                           │                             │
@@ -260,6 +263,73 @@ Ingests all collection logs and produces a formatted one-page markdown intellige
 4. DF Bearings + triangulation candidates
 5. Baseline Comparison (embedded diff)
 6. Analyst Recommendations (auto-generated action items)
+
+---
+
+## sigint_adaptive.sh — Adaptive SIGINT Collector
+
+The crown jewel. Implements the full automated F3EAD loop:
+
+1. **FIND** — Quick 3-band spectrum sweep (~30s)
+2. **FIX** — Compare against stored baseline, identify anomalies (+8 dB)
+3. **FINISH** — Target each anomalous frequency with 10s voice capture
+
+Only records when something **deviates from normal**. No wasted dwell time on dead channels. When a new transmitter appears or an existing one spikes, it automatically focuses collection on that frequency.
+
+**Dependencies:** rtl_power, rtl_fm, sox, bc, python3, RTL-SDR dongle
+
+```bash
+# First run — builds baseline (3 averaged sweeps), then monitors
+./sigint_adaptive.sh 8 build
+
+# Subsequent runs — uses existing baseline
+./sigint_adaptive.sh 8
+
+# 12-hour overnight
+./sigint_adaptive.sh 12
+
+# Force baseline rebuild (e.g., moved to new location)
+./sigint_adaptive.sh 8 build
+```
+
+| Arg | Default | Description |
+|-----|---------|-------------|
+| `$1` | 8 | Duration in hours |
+| `$2` | run | Mode: `run` (use existing baseline) or `build` (rebuild first) |
+
+**Configuration (edit in script):**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ANOMALY_DB` | 8 | dB above baseline to trigger targeting |
+| `VOICE_DWELL` | 10 | Seconds to record when targeting anomaly |
+| `VOICE_THRESHOLD` | 10% | Voice-band energy gate (after 300-3000Hz bandpass) |
+| `MIN_VOICE_SEC` | 1.5 | Minimum voice duration to keep (rejects PTT blips) |
+| `SWEEP_INTERVAL` | 120 | Seconds between spectrum checks |
+
+**Voice detection pipeline:**
+1. Record raw FM audio (no RF squelch — carriers always present)
+2. Bandpass filter 300-3000 Hz (removes CTCSS tones at 67-254 Hz)
+3. Sox silence detection at 10% threshold (idle carrier = ~8% energy)
+4. Duration check ≥ 1.5s (rejects PTT key-ups without speech)
+
+**Bands monitored:**
+
+| Band | Range | Resolution |
+|------|-------|-----------|
+| VHF | 136–174 MHz | 50 kHz bins |
+| UHF | 400–470 MHz | 100 kHz bins |
+| 800 MHz | 806–870 MHz | 100 kHz bins |
+
+**Output:**
+- Baseline: `/var/lib/recon-raven/baselines/spectrum_baseline.json`
+- Voice captures: `/var/lib/recon-raven/recordings/target_<freq>MHz_<timestamp>.wav`
+- Log: `/var/lib/recon-raven/logs/adaptive_<timestamp>.log`
+
+**Why this works better than the scanning approach:**
+- Scanning voice recorder: 10 channels × 6s = 70s cycle, 8.5% duty per channel
+- Adaptive collector: only targets active anomalies, 10s dwell on what matters
+- Result: catches transmissions you'd otherwise miss
 
 ---
 

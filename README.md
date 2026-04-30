@@ -116,6 +116,7 @@ Python scripts for unattended/headless signal collection, aligned to the F3EAD c
 | `signal_alerter.py` | FIND/FIX | Desktop/audible/webhook alerts on frequency activity |
 | `sigint_sweep.sh` | FIND | Multi-band spectrum sweep (VHF/UHF/800) for pattern-of-life |
 | `voice_scanner.sh` | FIND/FIX | Scanning voice recorder — squelch-gated WAV capture across channels |
+| `sigint_adaptive.sh` | FIND/FIX/FINISH | Adaptive collector — baseline→detect anomaly→target with voice capture |
 | `baseline_diff.py` | ANALYZE | Compares two rtl_433 baselines — reports new/missing/changed signals |
 | `intel_packager.py` | DISSEMINATE | Generates one-page markdown intel summary from all logs |
 

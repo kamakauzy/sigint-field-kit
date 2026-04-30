@@ -28,7 +28,7 @@ PID_FILE="/tmp/voice_scanner.pid"
 # Idle carrier + CTCSS has ~8% energy in voice band
 # Human voice has 20%+ energy in voice band
 VOICE_THRESHOLD="10%"    # Above idle carrier after bandpass
-MIN_VOICE_SEC="0.4"      # Minimum voice duration to keep
+MIN_VOICE_SEC="1.5"      # Minimum voice duration to keep
 
 # ── Target Frequencies ───────────────────────────────────────────────────
 # Format: FREQ_HZ:MODE:LABEL
