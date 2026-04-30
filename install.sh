@@ -483,6 +483,22 @@ echo "  emcon-on.sh          – Kill WiFi/BT for emission control"
 echo "  emcon-off.sh         – Restore WiFi/BT"
 echo ""
 
+# ── Frequency Identification Database ─────────────────────────────────────
+banner "Frequency Identification Database"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+FREQ_DB="$SCRIPT_DIR/data/freq_db.sqlite"
+
+info "Building/updating frequency identification database..."
+if run_as_user python3 "$SCRIPT_DIR/scripts/build_freq_db.py" --db "$FREQ_DB" 2>&1; then
+    ok "Frequency DB updated at $FREQ_DB"
+else
+    warn "Online sources unavailable, building offline seed DB..."
+    run_as_user python3 "$SCRIPT_DIR/scripts/build_freq_db.py" --db "$FREQ_DB" --offline 2>&1
+    ok "Frequency DB (seed only) at $FREQ_DB"
+fi
+track "Frequency identification database"
+
 if [[ $PASS -lt $TOTAL ]]; then
     warn "Some tools did not install. Check the log: $LOG_FILE"
     warn "DragonOS may already include some tools – check the application menu."

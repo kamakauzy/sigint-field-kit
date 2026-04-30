@@ -1,6 +1,6 @@
 # SIGINT Intelligence Summary
 
-**Generated:** 2026-04-30 16:55:45 UTC  
+**Generated:** 2026-04-30 17:10:51 UTC  
 **Classification:** UNCLASSIFIED // FOUO  
 **Operation:** OP BASELINE  
 **Location:** Home QTH / Grid EM73  
@@ -14,11 +14,11 @@
 - Collection window: `2026-04-29 04:17:14.807` → `2026-04-30 11:54:23`
 
 **Most active frequencies:**
-  - 463.000 MHz — 66 event(s)
-  - 145.500 MHz — 17 event(s)
-  - 409.800 MHz — 14 event(s)
-  - 857.478 MHz — 12 event(s)
-  - 153.643 MHz — 8 event(s)
+  - 463.000 MHz (GMRS/UHF Business) — 66 event(s)
+  - 145.500 MHz (2m FM Simplex Calling) — 17 event(s)
+  - 409.800 MHz (PMR446 (EU)) — 14 event(s)
+  - 857.478 MHz (P25 Trunked (common)) — 12 event(s)
+  - 153.643 MHz (VHF Business Band) — 8 event(s)
 
 ---
 
@@ -77,7 +77,7 @@ Total alerts: **133**
 
 ## Analyst Recommendations
 
-- [ ] Prioritize collection on **433.9200 MHz** (4 bursts)
+- [ ] Prioritize collection on **433.9200 MHz (ISM 433.92 Center)** (4 bursts)
 - [ ] Consider tightening squelch threshold (high alert volume)
 
 ---
