@@ -168,6 +168,31 @@ else
 fi
 track "SDR++"
 
+# --- SigDigger ---
+info "Checking for SigDigger..."
+if command -v SigDigger &>/dev/null; then
+    ok "SigDigger already installed"
+else
+    # Try AppImage first (fastest), fall back to blsd build script
+    SIGDIGGER_DIR="/opt/sigdigger"
+    mkdir -p "$SIGDIGGER_DIR"
+    APPIMAGE_URL="https://github.com/BatchDrake/SigDigger/releases/download/latest/SigDigger-latest-x86_64.AppImage"
+    if wget -q "$APPIMAGE_URL" -O "$SIGDIGGER_DIR/SigDigger.AppImage" 2>/dev/null; then
+        chmod +x "$SIGDIGGER_DIR/SigDigger.AppImage"
+        ln -sf "$SIGDIGGER_DIR/SigDigger.AppImage" /usr/local/bin/SigDigger
+        ok "SigDigger (AppImage)"
+    else
+        info "AppImage download failed – building via blsd..."
+        apt-get install -y -qq libsoapysdr-dev libvolk2-dev libfftw3-dev \
+            qtbase5-dev qt5-qmake libxml2-dev portaudio19-dev 2>/dev/null || true
+        cd "$SIGDIGGER_DIR"
+        wget -q https://actinid.org/blsd -O blsd && chmod +x blsd
+        ./blsd AmateurDSN APTPlugin 2>/dev/null && ok "SigDigger (built via blsd)" || warn "SigDigger build failed – install manually from https://github.com/BatchDrake/SigDigger"
+        cd /
+    fi
+fi
+track "SigDigger"
+
 # --- CubicSDR ---
 info "Installing CubicSDR..."
 apt-get install -y -qq cubicsdr 2>/dev/null && ok "CubicSDR" || warn "CubicSDR not in repos"
