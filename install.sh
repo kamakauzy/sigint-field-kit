@@ -271,6 +271,77 @@ info "Installing multimon-ng..."
 apt-get install -y -qq multimon-ng 2>/dev/null && ok "multimon-ng" || warn "multimon-ng not available"
 track "multimon-ng"
 
+# --- dump1090 (ADS-B aircraft tracking on 1090 MHz) ---
+info "Installing dump1090..."
+if command -v dump1090-mutability &>/dev/null || command -v dump1090-fa &>/dev/null || command -v dump1090 &>/dev/null; then
+    ok "dump1090 already installed"
+else
+    apt-get install -y -qq dump1090-mutability 2>/dev/null && ok "dump1090 (apt)" || {
+        info "Building dump1090 from source..."
+        DUMP1090_DIR="/opt/dump1090-build"
+        [[ -d "$DUMP1090_DIR" ]] && rm -rf "$DUMP1090_DIR"
+        git clone --depth 1 https://github.com/flightaware/dump1090.git "$DUMP1090_DIR"
+        apt-get install -y -qq libbladerf-dev libhackrf-dev liblimesuite-dev 2>/dev/null || true
+        cd "$DUMP1090_DIR" && make -j"$(nproc)" && cp dump1090 /usr/local/bin/ && ok "dump1090 (built)" || warn "dump1090 build failed"
+        cd /
+    }
+fi
+track "dump1090 (ADS-B)"
+
+# --- trunk-recorder (P25/trunked radio recorder) ---
+info "Installing trunk-recorder..."
+if command -v trunk-recorder &>/dev/null; then
+    ok "trunk-recorder already installed"
+else
+    TRUNK_DIR="/opt/trunk-recorder-build"
+    if [[ ! -d "$TRUNK_DIR" ]]; then
+        git clone --depth 1 https://github.com/robotastic/trunk-recorder.git "$TRUNK_DIR"
+    fi
+    apt-get install -y -qq libboost-all-dev libcurl4-openssl-dev libssl-dev \
+        libgmp-dev libsndfile1-dev 2>/dev/null || true
+    mkdir -p "$TRUNK_DIR/build" && cd "$TRUNK_DIR/build"
+    cmake .. && make -j"$(nproc)" && make install && ok "trunk-recorder (built)" || warn "trunk-recorder build failed – needs GNU Radio + deps"
+    cd /
+fi
+track "trunk-recorder (P25/trunked)"
+
+# --- gr-satellites (satellite signal decoder) ---
+info "Installing gr-satellites..."
+if python3 -c "import gr_satellites" 2>/dev/null; then
+    ok "gr-satellites already installed"
+else
+    pip3 install --break-system-packages gr-satellites 2>/dev/null && ok "gr-satellites (pip3)" || {
+        apt-get install -y -qq gr-satellites 2>/dev/null && ok "gr-satellites (apt)" || {
+            info "Building gr-satellites from source..."
+            GR_SAT_DIR="/opt/gr-satellites-build"
+            [[ -d "$GR_SAT_DIR" ]] && rm -rf "$GR_SAT_DIR"
+            git clone --depth 1 https://github.com/daniestevez/gr-satellites.git "$GR_SAT_DIR"
+            mkdir -p "$GR_SAT_DIR/build" && cd "$GR_SAT_DIR/build"
+            cmake .. && make -j"$(nproc)" && make install && ldconfig && ok "gr-satellites (built)" || warn "gr-satellites build failed"
+            cd /
+        }
+    }
+fi
+track "gr-satellites"
+
+# --- direwolf (APRS / packet radio decoder) ---
+info "Installing direwolf..."
+if command -v direwolf &>/dev/null; then
+    ok "direwolf already installed"
+else
+    apt-get install -y -qq direwolf 2>/dev/null && ok "direwolf (apt)" || {
+        info "Building direwolf from source..."
+        DIRE_DIR="/opt/direwolf-build"
+        [[ -d "$DIRE_DIR" ]] && rm -rf "$DIRE_DIR"
+        git clone --depth 1 https://github.com/wb2osz/direwolf.git "$DIRE_DIR"
+        apt-get install -y -qq libasound2-dev libgps-dev 2>/dev/null || true
+        mkdir -p "$DIRE_DIR/build" && cd "$DIRE_DIR/build"
+        cmake .. && make -j"$(nproc)" && make install && ok "direwolf (built)" || warn "direwolf build failed"
+        cd /
+    }
+fi
+track "direwolf (APRS)"
+
 # ── 6. Meshtastic / LoRa Tools ────────────────────────────────────────────
 banner "6/8  Meshtastic & LoRa Tools"
 
