@@ -15,6 +15,9 @@
 # Keep tracked config files
 !kraken/config/*.json
 
+# Keep map viewer
+!tools/*.html
+
 # Logs
 *.log
 

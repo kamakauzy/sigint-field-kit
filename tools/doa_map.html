@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIGINT DOA Map Viewer</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Courier New', monospace; background: #1a1a2e; color: #e0e0e0; }
+  #map { width: 100%; height: 100vh; }
+  #controls {
+    position: absolute; top: 10px; left: 60px; z-index: 1000;
+    background: rgba(26, 26, 46, 0.92); border: 1px solid #00ff88;
+    border-radius: 6px; padding: 12px 16px; max-width: 320px;
+  }
+  #controls h2 { color: #00ff88; font-size: 14px; margin-bottom: 8px; }
+  #controls label { display: block; font-size: 12px; margin: 6px 0 2px; color: #aaa; }
+  #controls input, #controls select {
+    width: 100%; padding: 4px 6px; background: #16213e; color: #e0e0e0;
+    border: 1px solid #444; border-radius: 3px; font-family: inherit; font-size: 12px;
+  }
+  #controls button {
+    margin-top: 10px; padding: 6px 14px; background: #00ff88; color: #1a1a2e;
+    border: none; border-radius: 3px; cursor: pointer; font-weight: bold; font-family: inherit;
+  }
+  #controls button:hover { background: #00cc6e; }
+  #controls .info { font-size: 11px; color: #888; margin-top: 8px; }
+  #legend {
+    position: absolute; bottom: 30px; right: 10px; z-index: 1000;
+    background: rgba(26, 26, 46, 0.92); border: 1px solid #444;
+    border-radius: 6px; padding: 10px 14px; font-size: 12px;
+  }
+  #legend div { margin: 3px 0; }
+  #legend span.dot {
+    display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+    margin-right: 6px; vertical-align: middle;
+  }
+  #legend span.line {
+    display: inline-block; width: 20px; height: 3px;
+    margin-right: 6px; vertical-align: middle;
+  }
+  .leaflet-popup-content-wrapper {
+    background: #16213e !important; color: #e0e0e0 !important;
+    border: 1px solid #00ff88 !important;
+  }
+  .leaflet-popup-tip { background: #16213e !important; }
+  .leaflet-popup-content { font-family: 'Courier New', monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div id="controls">
+  <h2>▸ SIGINT DOA MAP</h2>
+  <label for="fileInput">Load GeoJSON:</label>
+  <input type="file" id="fileInput" accept=".json,.geojson">
+  <label for="urlInput">— or paste URL/path:</label>
+  <input type="text" id="urlInput" placeholder="emitters.json">
+  <button onclick="loadFromUrl()">Load</button>
+  <div class="info" id="statusText">No data loaded</div>
+</div>
+
+<div id="legend">
+  <div><span class="dot" style="background:#00ff88"></span> Observer</div>
+  <div><span class="dot" style="background:#ff4444"></span> Triangulated emitter</div>
+  <div><span class="line" style="background:#ff4444"></span> Primary bearing</div>
+  <div><span class="line" style="background:#ffaa44"></span> Secondary bearing</div>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// Dark tile layer
+const map = L.map('map').setView([35.47, -97.51], 12);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; OpenStreetMap &copy; CARTO',
+  maxZoom: 19,
+}).addTo(map);
+
+let dataLayer = null;
+
+function clearData() {
+  if (dataLayer) { map.removeLayer(dataLayer); dataLayer = null; }
+}
+
+function renderGeoJSON(geojson) {
+  clearData();
+
+  const features = geojson.features || [];
+  if (!features.length) {
+    document.getElementById('statusText').textContent = 'GeoJSON has no features';
+    return;
+  }
+
+  dataLayer = L.geoJSON(geojson, {
+    pointToLayer: function(feature, latlng) {
+      const props = feature.properties || {};
+      const isObserver = props.name === 'Observer' || props['marker-symbol'] === 'star';
+      const isEmitter = props['marker-symbol'] === 'danger' || (props.name || '').includes('triangulated');
+
+      if (isObserver) {
+        return L.circleMarker(latlng, {
+          radius: 10, fillColor: '#00ff88', color: '#00ff88',
+          weight: 2, fillOpacity: 0.8,
+        });
+      } else if (isEmitter) {
+        return L.circleMarker(latlng, {
+          radius: 9, fillColor: '#ff4444', color: '#ff0000',
+          weight: 2, fillOpacity: 0.8,
+        });
+      } else {
+        return L.circleMarker(latlng, {
+          radius: 6, fillColor: '#ffaa44', color: '#ffaa44',
+          weight: 1, fillOpacity: 0.6,
+        });
+      }
+    },
+    style: function(feature) {
+      if (feature.geometry.type === 'LineString') {
+        const props = feature.properties || {};
+        return {
+          color: props.stroke || '#ff4444',
+          weight: props['stroke-width'] || 2,
+          opacity: 0.7,
+          dashArray: '8, 4',
+        };
+      }
+      return {};
+    },
+    onEachFeature: function(feature, layer) {
+      const props = feature.properties || {};
+      let popup = '<b>' + (props.name || 'Unknown') + '</b>';
+
+      if (props.freq_mhz) popup += '<br>Freq: ' + props.freq_mhz.toFixed(4) + ' MHz';
+      if (props.bearing_deg !== undefined) popup += '<br>Bearing: ' + props.bearing_deg.toFixed(1) + '°';
+      if (props.error_m !== undefined) popup += '<br>Error: ~' + props.error_m.toFixed(0) + 'm';
+      if (props.bearing_count) popup += '<br>Bearings: ' + props.bearing_count;
+      if (props.count) popup += '<br>Cluster size: ' + props.count;
+
+      if (feature.geometry.type === 'Point') {
+        const coords = feature.geometry.coordinates;
+        popup += '<br><span style="color:#888">' + coords[1].toFixed(6) + ', ' + coords[0].toFixed(6) + '</span>';
+      }
+
+      layer.bindPopup(popup);
+    }
+  }).addTo(map);
+
+  map.fitBounds(dataLayer.getBounds().pad(0.1));
+
+  // Count features by type
+  let observers = 0, emitters = 0, bearingLines = 0;
+  features.forEach(f => {
+    if (f.geometry.type === 'LineString') bearingLines++;
+    else if ((f.properties || {})['marker-symbol'] === 'star') observers++;
+    else emitters++;
+  });
+
+  document.getElementById('statusText').textContent =
+    `Loaded: ${observers} observer(s), ${emitters} emitter(s), ${bearingLines} bearing line(s)`;
+}
+
+// Load from file input
+document.getElementById('fileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const geojson = JSON.parse(ev.target.result);
+      renderGeoJSON(geojson);
+    } catch (err) {
+      document.getElementById('statusText').textContent = 'Parse error: ' + err.message;
+    }
+  };
+  reader.readAsText(file);
+});
+
+// Load from URL/path
+function loadFromUrl() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) return;
+  document.getElementById('statusText').textContent = 'Loading...';
+  fetch(url)
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(renderGeoJSON)
+    .catch(err => {
+      document.getElementById('statusText').textContent = 'Load error: ' + err.message;
+    });
+}
+
+// Drag and drop support
+const mapDiv = document.getElementById('map');
+mapDiv.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+mapDiv.addEventListener('drop', e => {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try { renderGeoJSON(JSON.parse(ev.target.result)); }
+    catch (err) { document.getElementById('statusText').textContent = 'Parse error: ' + err.message; }
+  };
+  reader.readAsText(file);
+});
+
+// Auto-load if URL has ?file= param
+const params = new URLSearchParams(window.location.search);
+if (params.get('file')) {
+  document.getElementById('urlInput').value = params.get('file');
+  loadFromUrl();
+}
+</script>
+</body>
+</html>

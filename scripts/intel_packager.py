@@ -402,7 +402,7 @@ Pipeline:
             print(f"[WARN] No log files found in {args.all}", file=sys.stderr)
 
     # Check we have at least something to report on
-    if not any([args.bursts, args.alerts, args.bearings, args.baseline_diff]):
+    if not any([args.bursts, args.alerts, args.bearings, args.baseline_diff, args.kraken_db]):
         print("[ERROR] No input data specified. Use --bursts, --alerts, --bearings, --baseline-diff, or --all.",
               file=sys.stderr)
         sys.exit(1)

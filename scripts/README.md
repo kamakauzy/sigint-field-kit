@@ -33,6 +33,12 @@ Headless Python scripts for unattended signal collection and analysis. Each scri
 │  DISSEMINATE intel_packager.py ────── one-page intel summary (.md)      │
 │              freq_identify.py ─────── annotate report with signal names  │
 │                                                                         │
+│  DF/LOCATE   kraken_doa_collector.py ── DOA bearings (SQLite + CSV)     │
+│              emitter_locator.py ─────── triangulation + GeoJSON          │
+│              kraken_hunter.sh ───────── bearing + voice capture          │
+│              antenna_calculator.py ──── array sizing for target bands    │
+│              kraken_test_harness.py ─── synthetic data for testing       │
+│                                                                         │
 │  MAINTAIN    build_freq_db.py ─────── build/update frequency database   │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -720,3 +726,185 @@ For GNU Radio scripts (squelch_recorder, burst_detector), the default is `~/SIGI
 ├── logs/          ← burst CSVs, alert CSVs, power logger data
 └── baselines/     ← rtl_433 baseline CSVs for diff comparison
 ```
+
+---
+
+## KrakenSDR Direction Finding Scripts
+
+The following scripts integrate with the KrakenSDR 5-channel coherent receiver for DOA (Direction of Arrival) bearing estimation, emitter triangulation, and fox hunting.
+
+### kraken_doa_collector.py — DOA Bearing Collector
+
+Polls the KrakenSDR Pi forwarder API and logs bearing data to SQLite + CSV. Runs continuously with session tracking and graceful shutdown.
+
+**Dependencies:** Python 3 (stdlib only), KrakenSDR Pi running at configured IP
+
+```bash
+# Defaults from kraken/config/kraken_defaults.json
+./kraken_doa_collector.py
+
+# Specify observer position (required for triangulation)
+./kraken_doa_collector.py --lat 35.4676 --lon -97.5164
+
+# Custom Pi address
+./kraken_doa_collector.py --host 192.168.1.120 --port 8081
+
+# Run for 1 hour with 5-second polling
+./kraken_doa_collector.py --duration 3600 --interval 5
+
+# Quiet mode (no per-bearing output)
+./kraken_doa_collector.py --quiet --duration 7200
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--host` | 192.168.1.120 | KrakenSDR Pi IP address |
+| `--port` | 8081 | Forwarder API port |
+| `--config` | kraken/config/kraken_defaults.json | Config file path |
+| `--db` | data/kraken_doa.sqlite | SQLite database path |
+| `--csv` | data/bearings.csv | CSV log path |
+| `--lat` | (config) | Observer latitude |
+| `--lon` | (config) | Observer longitude |
+| `--station` | HOME_QTH | Station identifier |
+| `--duration` | 0 (infinite) | Run duration in seconds |
+| `--interval` | 2 | Poll interval in seconds |
+| `--min-confidence` | 0.3 | Minimum confidence to log |
+| `--quiet` | off | Suppress per-bearing output |
+
+**Output:** `data/kraken_doa.sqlite` (bearings + sessions tables), `data/bearings.csv`
+
+---
+
+### emitter_locator.py — Emitter Triangulation Engine
+
+Reads DOA bearing data from SQLite and computes estimated emitter locations. Clusters bearings by angle, performs Stansfield least-squares intersection when multiple observation positions are available. Outputs human-readable analysis + GeoJSON for mapping.
+
+**Dependencies:** Python 3 (stdlib only)
+
+```bash
+# Analyze all bearings in database
+./emitter_locator.py
+
+# Single frequency
+./emitter_locator.py --freq 462.7125
+
+# Last hour only
+./emitter_locator.py --since 1h
+
+# Specific session
+./emitter_locator.py --session 20260607-143022
+
+# Output GeoJSON for map display
+./emitter_locator.py --geojson data/emitters.json
+
+# JSON output for scripting
+./emitter_locator.py --json
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--db` | data/kraken_doa.sqlite | Bearing database path |
+| `--freq` | (all) | Filter by frequency (MHz) |
+| `--session` | (all) | Filter by session ID |
+| `--since` | (all) | Time window (1h, 30m, 2d, etc.) |
+| `--geojson` | none | Output GeoJSON file path |
+| `--json` | off | Output as JSON (for piping) |
+
+**Triangulation modes:**
+- **Multi-position:** Bearings from different lat/lon → Stansfield least-squares intersection → estimated emitter position + error radius
+- **Single-position:** All bearings from one location → bearing clusters only (direction, not distance)
+
+**GeoJSON features:** Observer point (green), triangulated emitter point (red), bearing lines (primary red, secondary orange)
+
+---
+
+### kraken_hunter.sh — Fox Hunt Mode
+
+Combines KrakenSDR DOA with RTL-SDR voice recording. For each target frequency: gets bearing from KrakenSDR, records audio with RTL-SDR, applies bandpass + variance detection, and saves recordings tagged with bearing in the filename.
+
+**Dependencies:** RTL-SDR, sox, curl, KrakenSDR Pi running
+
+```bash
+# Default — hunt all configured frequencies
+./kraken_hunter.sh
+
+# Custom duration and output
+HUNT_DURATION=3600 HUNT_DIR=/tmp/hunt ./kraken_hunter.sh
+```
+
+**Output per frequency:**
+- WAV files: `hunt_462.7125MHz_245deg_20260607-143022.wav`
+- CSV log: `hunt_bearings.csv` (timestamp, freq, bearing, confidence, has_voice, file)
+
+**Voice detection:** Same variance-based detection as squelch_recorder.sh (threshold 0.003, noise RMS floor 0.015). Rejects flat carriers that fool simple energy gates.
+
+---
+
+### kraken_test_harness.py — Synthetic Data Generator
+
+Generates realistic fake DOA data for dry-running the full pipeline without hardware. Two scenarios: fixed station (tests clustering) and mobile collection (tests triangulation).
+
+**Dependencies:** Python 3 (stdlib only)
+
+```bash
+# Default — both scenarios, 120 bearings each
+./kraken_test_harness.py
+
+# Mobile collection only, more bearings
+./kraken_test_harness.py --scenario mobile --bearings 300
+
+# Custom noise level and reproducible seed
+./kraken_test_harness.py --noise 5.0 --seed 42
+
+# Full pipeline test:
+./kraken_test_harness.py
+./emitter_locator.py --db data/kraken_test.sqlite --geojson data/test_map.json
+./intel_packager.py --kraken-db data/kraken_test.sqlite -o data/test_report.md
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--db` | data/kraken_test.sqlite | Output database path |
+| `--scenario` | both | Test scenario: fixed, mobile, or both |
+| `--bearings` | 120 | Total bearings per scenario |
+| `--noise` | 3.0 | Bearing noise (gaussian σ in degrees) |
+| `--seed` | random | Random seed for reproducibility |
+
+**Ground truth:** The harness prints known emitter positions so you can verify triangulation accuracy.
+
+---
+
+### antenna_calculator.py — Antenna Array Calculator
+
+Computes optimal element spacing for the KrakenSDR 5-element UCA. Shows usable frequency range, band coverage, and compromise calculations for multi-band operation.
+
+**Dependencies:** Python 3 (stdlib only)
+
+```bash
+# Show info for default 12.7cm array
+./antenna_calculator.py
+
+# Optimal radius for a specific frequency
+./antenna_calculator.py --freq 462.7125
+
+# Compromise radius for VHF + UHF
+./antenna_calculator.py --freq 146.0 462.0
+
+# Check coverage for a specific radius
+./antenna_calculator.py --radius 0.25
+
+# Band preset
+./antenna_calculator.py --band vhf
+
+# Full band table
+./antenna_calculator.py --all-bands
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--freq` | none | Target frequency/frequencies (MHz) |
+| `--radius` | none | Check coverage for radius (meters) |
+| `--band` | none | Band preset (vhf, uhf, frs, ham2m, etc.) |
+| `--all-bands` | off | Show all band coverage with default array |
+
+**Band presets:** airband, vhf, ham2m, murs, marine, uhf, ham70cm, frs, ism433, 800mhz

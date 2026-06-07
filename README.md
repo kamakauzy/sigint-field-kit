@@ -121,8 +121,137 @@ Python scripts for unattended/headless signal collection, aligned to the F3EAD c
 | `freq_identify.py` | ANALYZE | Identifies signals by frequency from local database (399+ entries) |
 | `build_freq_db.py` | MAINTAIN | Builds/updates frequency DB from rtl_433 + Artemis + seed data |
 | `intel_packager.py` | DISSEMINATE | Generates one-page markdown intel summary from all logs |
+| `kraken_doa_collector.py` | FIND/FIX | Polls KrakenSDR Pi for DOA bearings, logs to SQLite + CSV |
+| `emitter_locator.py` | FIX | Triangulates emitter locations from DOA bearing database |
+| `kraken_hunter.sh` | FIND/FIX | Fox hunt mode — DOA bearing + RTL-SDR voice recording |
+| `kraken_test_harness.py` | TEST | Generates synthetic DOA data for pipeline testing |
+| `antenna_calculator.py` | PLAN | Computes optimal antenna array sizing for target bands |
 
 See [`scripts/README.md`](scripts/README.md) for full usage documentation.
+
+---
+
+## KrakenSDR Integration — Direction Finding & Triangulation
+
+5-channel coherent receiver integration for DOA (Direction of Arrival) bearing estimation and emitter geolocation. The KrakenSDR runs on a dedicated Raspberry Pi; potato orchestrates collection and analysis.
+
+### Architecture
+
+```
+KrakenSDR (5ch coherent) ──USB──→ Raspberry Pi 4 ("kraken-pi")
+                                    ├─ Heimdall DAQ (raw IQ + calibration)
+                                    ├─ krakensdr_doa (MUSIC algorithm → bearings)
+                                    └─ kraken_forwarder.py (:8081 JSON API)
+                                          │
+                                     LAN (192.168.1.120)
+                                          │
+                              potato (DragonOS) ◄── RTL-SDR V4 (voice recording)
+                                ├─ kraken_doa_collector.py  → SQLite + CSV
+                                ├─ emitter_locator.py       → triangulation + GeoJSON
+                                ├─ kraken_hunter.sh         → bearing + voice recording
+                                ├─ intel_packager.py        → reports with bearings
+                                └─ tools/doa_map.html       → interactive map viewer
+```
+
+### Hardware Required
+
+| Item | Purpose | Notes |
+|------|---------|-------|
+| KrakenSDR | 5-channel coherent SDR | Must update firmware via USB before first use |
+| Raspberry Pi 4 (4GB+) | KrakenSDR host | Dedicated — runs DAQ + DOA full-time |
+| 32GB+ microSD | Pi OS | Use Raspberry Pi OS Lite (64-bit) |
+| USB-C power supply | Pi power | 5V/3A minimum |
+| 5× VHF/UHF whip antennas | Circular array | Match to target band (see antenna_calculator.py) |
+| Ground plane / mount | Array geometry | Must maintain precise element spacing |
+| Ethernet cable | Pi ↔ potato | Static IP 192.168.1.120 |
+| GPS dongle (optional) | Position + time | For mobile collection / triangulation |
+
+### KrakenSDR Firmware Update (Do This First)
+
+Before the Pi setup, update the KrakenSDR firmware from a desktop:
+
+1. Download the firmware updater from [KrakenRF GitHub](https://github.com/krakenrf/krakensdr_firmware)
+2. Connect KrakenSDR via USB to your desktop (not the Pi)
+3. Run the updater — follow their instructions
+4. Verify all 5 channels are detected
+
+### Pi Setup Workflow
+
+```bash
+# 1. Flash Raspberry Pi OS Lite (64-bit) to SD card
+# 2. Prep the SD card for headless boot:
+sudo bash kraken/prep_pi_sdcard.sh /mnt/boot /mnt/rootfs
+
+# 3. Insert SD, boot Pi, then SSH in:
+ssh pi@192.168.1.120
+
+# 4. Clone this repo and run the Pi installer:
+git clone https://github.com/kamakauzy/sigint-field-kit.git
+cd sigint-field-kit
+sudo bash kraken/install_kraken_pi.sh
+
+# 5. Reboot — services start automatically
+sudo reboot
+```
+
+### Collection Workflow
+
+```bash
+# On potato — start collecting bearings:
+python3 scripts/kraken_doa_collector.py --lat 35.4676 --lon -97.5164
+
+# Fox hunt — bearing + voice recording per frequency:
+bash scripts/kraken_hunter.sh
+
+# Analyze / triangulate:
+python3 scripts/emitter_locator.py --since 1h --geojson data/emitters.json
+
+# Generate intel report with DOA data:
+python3 scripts/intel_packager.py --kraken-db data/kraken_doa.sqlite -o report.md
+
+# View results on map:
+# Open tools/doa_map.html in browser, load the GeoJSON file
+```
+
+### Antenna Array Sizing
+
+The default config uses 12.7cm radius, optimized for ~430–590 MHz (UHF/FRS/GMRS). Use the calculator to check other bands:
+
+```bash
+python3 scripts/antenna_calculator.py                  # default array info
+python3 scripts/antenna_calculator.py --freq 462.7125  # optimal for FRS
+python3 scripts/antenna_calculator.py --freq 146 462   # compromise VHF+UHF
+python3 scripts/antenna_calculator.py --all-bands       # full coverage table
+```
+
+**Key insight:** You can't cover both VHF and UHF well with one array size. Build two ground planes or optimize for your primary target band.
+
+### Testing Without Hardware
+
+Generate synthetic DOA data to dry-run the full pipeline:
+
+```bash
+python3 scripts/kraken_test_harness.py
+python3 scripts/emitter_locator.py --db data/kraken_test.sqlite --geojson data/test_emitters.json
+python3 scripts/intel_packager.py --kraken-db data/kraken_test.sqlite -o data/test_report.md
+# Open tools/doa_map.html → load data/test_emitters.json
+```
+
+### KrakenSDR Scripts Reference
+
+| Script | Location | Purpose |
+|--------|----------|---------|
+| `install_kraken_pi.sh` | `kraken/` | Complete Pi setup (DAQ + DOA + API + systemd) |
+| `prep_pi_sdcard.sh` | `kraken/` | SD card prep (static IP, SSH, USB current) |
+| `kraken_defaults.json` | `kraken/config/` | Central config (Pi IP, antenna, frequencies) |
+| `kraken_doa_collector.py` | `scripts/` | Continuous bearing collection → SQLite/CSV |
+| `emitter_locator.py` | `scripts/` | Bearing clustering + Stansfield triangulation → GeoJSON |
+| `kraken_hunter.sh` | `scripts/` | Fox hunt: DOA bearing + RTL-SDR voice recording |
+| `kraken_test_harness.py` | `scripts/` | Synthetic data generator for pipeline testing |
+| `antenna_calculator.py` | `scripts/` | Array sizing calculator for target bands |
+| `doa_map.html` | `tools/` | Leaflet.js map viewer for GeoJSON output |
+
+---
 
 ## Tested On
 
