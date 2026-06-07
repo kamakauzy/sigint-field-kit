@@ -12,6 +12,9 @@
 *.csv
 *.json
 
+# Keep tracked config files
+!kraken/config/*.json
+
 # Logs
 *.log
 
@@ -23,6 +26,9 @@ Thumbs.db
 *~
 .vscode/
 .idea/
+
+# Node / MCP
+node_modules/
 
 # Python
 __pycache__/

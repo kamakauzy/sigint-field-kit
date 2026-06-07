@@ -76,6 +76,37 @@ def parse_bearings_csv(filepath):
     return bearings
 
 
+def parse_kraken_db(db_path, since_hours=None):
+    """Pull bearing data directly from the KrakenSDR DOA SQLite database."""
+    bearings = []
+    if not db_path or not Path(db_path).exists():
+        return bearings
+    try:
+        import sqlite3 as _sql
+        conn = _sql.connect(db_path)
+        conn.row_factory = _sql.Row
+        sql = "SELECT * FROM bearings"
+        params = []
+        if since_hours:
+            sql += " WHERE timestamp >= datetime('now', ?)"
+            params.append(f"-{since_hours} hours")
+        sql += " ORDER BY timestamp"
+        for row in conn.execute(sql, params).fetchall():
+            bearings.append({
+                "time": row["timestamp"],
+                "freq": str(row["freq_mhz"]),
+                "bearing": row["bearing_deg"],
+                "confidence": str(row["confidence"]) if row["confidence"] else "",
+                "latitude": row["latitude"],
+                "longitude": row["longitude"],
+                "station_id": row["station_id"],
+            })
+        conn.close()
+    except Exception:
+        pass
+    return bearings
+
+
 def read_baseline_diff(filepath):
     """Read a baseline_diff.py text report."""
     if not filepath or not Path(filepath).exists():
@@ -336,6 +367,10 @@ Pipeline:
                         help="Path to signal_alerter CSV output")
     parser.add_argument("--bearings", type=str, default=None,
                         help="Path to DF bearings CSV (timestamp,freq,bearing_deg,confidence)")
+    parser.add_argument("--kraken-db", dest="kraken_db", type=str, default=None,
+                        help="Path to KrakenSDR DOA SQLite database (data/kraken_doa.sqlite)")
+    parser.add_argument("--kraken-hours", dest="kraken_hours", type=int, default=None,
+                        help="Only include KrakenSDR bearings from the last N hours")
     parser.add_argument("--baseline-diff", dest="baseline_diff", type=str, default=None,
                         help="Path to baseline_diff.py text report")
     parser.add_argument("--all", type=str, default=None,
@@ -376,6 +411,12 @@ Pipeline:
     bursts = parse_bursts_csv(args.bursts)
     alerts = parse_alerts_csv(args.alerts)
     bearings = parse_bearings_csv(args.bearings)
+    # Merge KrakenSDR database bearings if provided
+    if args.kraken_db:
+        kraken_bearings = parse_kraken_db(args.kraken_db, args.kraken_hours)
+        if kraken_bearings:
+            bearings.extend(kraken_bearings)
+            print(f"[INFO] Loaded {len(kraken_bearings)} bearings from KrakenSDR DB", file=sys.stderr)
     baseline_diff_text = read_baseline_diff(args.baseline_diff)
 
     # Generate report

@@ -1,0 +1,47 @@
+{
+  "kraken_pi": {
+    "host": "192.168.1.120",
+    "doa_port": 8080,
+    "api_port": 8081,
+    "ssh_user": "pi"
+  },
+  "antenna": {
+    "type": "UCA",
+    "num_elements": 5,
+    "radius_m": 0.127,
+    "notes": "5-element uniform circular array. Radius = lambda/4 at 590 MHz. Adjust for target band."
+  },
+  "doa": {
+    "algorithm": "MUSIC",
+    "decimation": 1,
+    "gain": 40,
+    "frequencies_mhz": [
+      462.7125,
+      154.570,
+      154.600,
+      146.940,
+      156.800
+    ]
+  },
+  "collection": {
+    "poll_interval_sec": 2,
+    "min_confidence": 0.3,
+    "db_path": "data/kraken_doa.sqlite",
+    "bearing_log_csv": "data/bearings.csv"
+  },
+  "station": {
+    "id": "HOME_QTH",
+    "latitude": null,
+    "longitude": null,
+    "notes": "Set lat/lon for triangulation. Use GPS dongle or manual entry."
+  },
+  "recorder": {
+    "rtl_device": 0,
+    "sample_rate": 24000,
+    "gain": 38,
+    "dwell_sec": 60,
+    "variance_threshold": 0.003,
+    "noise_rms": 0.015,
+    "recordings_dir": "/var/lib/recon-raven/recordings"
+  }
+}
