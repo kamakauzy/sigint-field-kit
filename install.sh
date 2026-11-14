@@ -156,13 +156,13 @@ else
     apt-get install -y -qq sdrpp 2>/dev/null && ok "SDR++ (apt)" || {
         info "SDR++ not in repos – attempting build from source..."
         SDRPP_DIR="/opt/sdrpp-build"
+        SDRPP_TAG="1.0.4"   # canonical AlexandreRouma/SDRPlusPlus release tag
         if [[ ! -d "$SDRPP_DIR" ]]; then
-            git clone --depth 1 https://github.com/AlexandreRouworWorma/SDRPlusPlus.git "$SDRPP_DIR" 2>/dev/null || \
-            git clone --depth 1 https://github.com/AlexandreRouma/SDRPlusPlus.git "$SDRPP_DIR"
+            git clone --depth 1 --branch "$SDRPP_TAG" https://github.com/AlexandreRouma/SDRPlusPlus.git "$SDRPP_DIR"
         fi
         apt-get install -y -qq libglfw3-dev libglew-dev libvolk2-dev 2>/dev/null || true
         mkdir -p "$SDRPP_DIR/build" && cd "$SDRPP_DIR/build"
-        cmake .. -DOPT_BUILD_RTL_SDR_SOURCE=ON 2>/dev/null && make -j"$(nproc)" && make install && ok "SDR++ (built from source)" || warn "SDR++ build failed – install from DragonOS Software Center"
+        cmake .. -DOPT_BUILD_RTL_SDR_SOURCE=ON && make -j"$(nproc)" && make install && ok "SDR++ (built from source)" || warn "SDR++ build failed – install from DragonOS Software Center"
         cd /
     }
 fi
