@@ -1,0 +1,4 @@
+time,model,id,channel,freq,rssi
+2026-01-01T00:00:00,Acurite-Tower,101,1,433.92,-60
+2026-01-01T00:01:00,Acurite-Tower,101,1,433.92,-62
+2026-01-01T00:02:00,Oregon-THGR,7,2,433.92,-70

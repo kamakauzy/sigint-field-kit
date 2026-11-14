@@ -1,0 +1,4 @@
+time,model,id,channel,freq,rssi
+2026-01-02T00:00:00,Acurite-Tower,101,1,433.92,-40
+2026-01-02T00:01:00,Acurite-Tower,101,1,433.92,-42
+2026-01-02T00:02:00,Honeywell-Door,55,3,345.00,-55
