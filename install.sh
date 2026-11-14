@@ -51,7 +51,11 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 ACTUAL_USER="${SUDO_USER:-${USER:-root}}"
-ACTUAL_HOME=$(eval echo "~$ACTUAL_USER")
+ACTUAL_HOME=$(getent passwd "$ACTUAL_USER" | cut -d: -f6 || true)
+if [[ -z "$ACTUAL_HOME" ]]; then
+    fail "Cannot resolve home directory for user '$ACTUAL_USER'"
+    exit 1
+fi
 LOG_FILE="/tmp/sigint-install-$(date +%Y%m%d-%H%M%S).log"
 
 banner "sigint-field-kit – DragonOS Installer"

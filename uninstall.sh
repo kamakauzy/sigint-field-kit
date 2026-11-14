@@ -30,8 +30,12 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-ACTUAL_USER="${SUDO_USER:-$USER}"
-ACTUAL_HOME=$(eval echo "~$ACTUAL_USER")
+ACTUAL_USER="${SUDO_USER:-${USER:-root}}"
+ACTUAL_HOME=$(getent passwd "$ACTUAL_USER" | cut -d: -f6 || true)
+if [[ -z "$ACTUAL_HOME" ]]; then
+    fail "Cannot resolve home directory for user '$ACTUAL_USER'"
+    exit 1
+fi
 
 banner "sigint-field-kit – Uninstaller"
 info "Purge mode: $PURGE"
