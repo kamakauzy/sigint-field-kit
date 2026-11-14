@@ -50,7 +50,7 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-ACTUAL_USER="${SUDO_USER:-$USER}"
+ACTUAL_USER="${SUDO_USER:-${USER:-root}}"
 ACTUAL_HOME=$(eval echo "~$ACTUAL_USER")
 LOG_FILE="/tmp/sigint-install-$(date +%Y%m%d-%H%M%S).log"
 
@@ -586,12 +586,17 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 FREQ_DB="$SCRIPT_DIR/data/freq_db.sqlite"
 
 info "Building/updating frequency identification database..."
+mkdir -p "$SCRIPT_DIR/data"
+chown "$ACTUAL_USER" "$SCRIPT_DIR/data" 2>/dev/null || true
 if run_as_user python3 "$SCRIPT_DIR/scripts/build_freq_db.py" --db "$FREQ_DB" 2>&1; then
     ok "Frequency DB updated at $FREQ_DB"
 else
     warn "Online sources unavailable, building offline seed DB..."
-    run_as_user python3 "$SCRIPT_DIR/scripts/build_freq_db.py" --db "$FREQ_DB" --offline 2>&1
-    ok "Frequency DB (seed only) at $FREQ_DB"
+    if run_as_user python3 "$SCRIPT_DIR/scripts/build_freq_db.py" --db "$FREQ_DB" --offline 2>&1; then
+        ok "Frequency DB (seed only) at $FREQ_DB"
+    else
+        warn "Frequency DB build failed – run scripts/build_freq_db.py --offline manually"
+    fi
 fi
 track "Frequency identification database"
 
