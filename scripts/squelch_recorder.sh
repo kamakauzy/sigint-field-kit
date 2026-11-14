@@ -225,11 +225,11 @@ log "═════════════════════════
 cycle=0
 total_saved=0
 
-while [ $(date +%s) -lt $END_TIME ]; do
+while [ "$(date +%s)" -lt "$END_TIME" ]; do
     cycle=$((cycle + 1))
 
     for freq_mhz in "${FREQS[@]}"; do
-        [ $(date +%s) -ge $END_TIME ] && break
+        [ "$(date +%s)" -ge "$END_TIME" ] && break
 
         log "Cycle $cycle | Monitoring ${freq_mhz} MHz for ${DWELL_SEC}s..."
         LAST_SAVED=0

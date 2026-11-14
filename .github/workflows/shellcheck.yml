@@ -17,8 +17,7 @@ jobs:
       - name: Install ShellCheck
         run: sudo apt-get install -y shellcheck
 
-      - name: Run ShellCheck on install.sh
-        run: shellcheck -s bash -e SC2086,SC2034 install.sh
-
-      - name: Run ShellCheck on verify-setup.sh
-        run: shellcheck -s bash -e SC2086,SC2034 verify-setup.sh
+      - name: Run ShellCheck on all tracked shell scripts
+        # -S warning: style notes (SC2015/SC2129/SC1091) are tolerated;
+        # SC2155 excluded (declare-and-assign is used throughout the helper scripts)
+        run: git ls-files '*.sh' | xargs shellcheck -s bash -S warning -e SC2086,SC2034,SC2155

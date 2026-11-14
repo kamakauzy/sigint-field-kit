@@ -42,7 +42,7 @@ echo "  P25: $P25_FILE"
 touch "$VHF_FILE" "$UHF_FILE" "$P25_FILE"
 CYCLE=0
 
-while [ $(date +%s) -lt $END_TIME ]; do
+while [ "$(date +%s)" -lt "$END_TIME" ]; do
     CYCLE=$((CYCLE + 1))
 
     # VHF (136-174) — Baofengs, MURS, marine, public safety, ham 2m

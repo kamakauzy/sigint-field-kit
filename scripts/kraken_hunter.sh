@@ -123,7 +123,7 @@ hunt_freq() {
         -l 0 -p 0 -d "$DEVICE" \
         "$raw_file" 2>/dev/null || true
 
-    if [ ! -f "$raw_file" ] || [ $(stat -c%s "$raw_file" 2>/dev/null || echo 0) -lt 4800 ]; then
+    if [ ! -f "$raw_file" ] || [ "$(stat -c%s "$raw_file" 2>/dev/null || echo 0)" -lt 4800 ]; then
         log "  - ${freq_mhz} MHz [${bearing_str}]: no audio"
         echo "$ts_utc,$freq_mhz,$bearing_deg,$confidence,false," >> "$HUNT_LOG"
         rm -f "$raw_file"
@@ -209,11 +209,11 @@ log "═════════════════════════
 cycle=0
 total_hits=0
 
-while [ $(date +%s) -lt $END_TIME ]; do
+while [ "$(date +%s)" -lt "$END_TIME" ]; do
     cycle=$((cycle + 1))
 
     for freq_mhz in "${FREQS[@]}"; do
-        [ $(date +%s) -ge $END_TIME ] && break
+        [ "$(date +%s)" -ge "$END_TIME" ] && break
         log "Cycle $cycle | Hunting ${freq_mhz} MHz..."
         hunt_freq "$freq_mhz"
     done

@@ -78,11 +78,11 @@ log "═════════════════════════
 cycle=0
 captures=0
 scans=0
-while [ $(date +%s) -lt $END_TIME ]; do
+while [ "$(date +%s)" -lt "$END_TIME" ]; do
     cycle=$((cycle + 1))
 
     for entry in "${CHANNELS[@]}"; do
-        [ $(date +%s) -ge $END_TIME ] && break
+        [ "$(date +%s)" -ge "$END_TIME" ] && break
 
         IFS=':' read -r freq mode label <<< "$entry"
         scans=$((scans + 1))
@@ -104,7 +104,7 @@ while [ $(date +%s) -lt $END_TIME ]; do
 
         # Skip empty
         [ ! -f "$raw_file" ] && continue
-        [ $(stat -c%s "$raw_file" 2>/dev/null || echo 0) -lt 4800 ] && { rm -f "$raw_file"; continue; }
+        [ "$(stat -c%s "$raw_file" 2>/dev/null || echo 0)" -lt 4800 ] && { rm -f "$raw_file"; continue; }
 
         # Convert to WAV
         sox -t raw -r "$SAMPLE_RATE" -e signed -b 16 -c 1 "$raw_file" "$tmp_wav" 2>/dev/null || { rm -f "$raw_file"; continue; }
@@ -123,7 +123,7 @@ while [ $(date +%s) -lt $END_TIME ]; do
         rm -f "$tmp_wav" "$vbf_wav"
 
         # Check duration — must have MIN_VOICE_SEC of actual voice
-        if [ -f "$final_wav" ] && [ $(stat -c%s "$final_wav" 2>/dev/null || echo 0) -gt 44 ]; then
+        if [ -f "$final_wav" ] && [ "$(stat -c%s "$final_wav" 2>/dev/null || echo 0)" -gt 44 ]; then
             duration=$(sox "$final_wav" -n stat 2>&1 | grep "Length" | awk '{print $NF}')
             if [ -n "$duration" ] && [ "$(echo "$duration >= $MIN_VOICE_SEC" | bc -l 2>/dev/null || echo 0)" = "1" ]; then
                 captures=$((captures + 1))

@@ -190,7 +190,7 @@ capture_voice() {
         "$raw_file" 2>/dev/null || true
 
     [ ! -f "$raw_file" ] && return 1
-    [ $(stat -c%s "$raw_file" 2>/dev/null || echo 0) -lt 4800 ] && { rm -f "$raw_file"; return 1; }
+    [ "$(stat -c%s "$raw_file" 2>/dev/null || echo 0)" -lt 4800 ] && { rm -f "$raw_file"; return 1; }
 
     # Convert to WAV
     sox -t raw -r "$SAMPLE_RATE" -e signed -b 16 -c 1 "$raw_file" "$tmp_wav" 2>/dev/null || { rm -f "$raw_file"; return 1; }
@@ -209,7 +209,7 @@ capture_voice() {
     rm -f "$tmp_wav" "$vbf_wav"
 
     # Check duration — must have MIN_VOICE_SEC of actual voice
-    if [ -f "$final_wav" ] && [ $(stat -c%s "$final_wav" 2>/dev/null || echo 0) -gt 44 ]; then
+    if [ -f "$final_wav" ] && [ "$(stat -c%s "$final_wav" 2>/dev/null || echo 0)" -gt 44 ]; then
         local duration=$(sox "$final_wav" -n stat 2>&1 | grep "Length" | awk '{print $NF}')
         if [ -n "$duration" ] && [ "$(echo "$duration >= $MIN_VOICE_SEC" | bc -l 2>/dev/null || echo 0)" = "1" ]; then
             log "  ✓ CAPTURED VOICE: ${freq_mhz} MHz | ${duration}s | +${delta}dB over baseline"
@@ -259,7 +259,7 @@ cycle=0
 total_anomalies=0
 total_captures=0
 
-while [ $(date +%s) -lt $END_TIME ]; do
+while [ "$(date +%s)" -lt "$END_TIME" ]; do
     cycle=$((cycle + 1))
 
     # Phase 1: FIND — Quick spectrum sweep

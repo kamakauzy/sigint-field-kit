@@ -117,6 +117,7 @@ fi
 # ── Working directory ───────────────────────────────────────────────────────
 hdr "Working Directory"
 for dir in baselines recordings logs intel-packages; do
+    # shellcheck disable=SC2088  # tilde is display text only
     if [[ -d "$HOME/SIGINT/$dir" ]]; then
         ok "~/SIGINT/$dir/"
         PASS=$((PASS+1))
@@ -127,6 +128,7 @@ for dir in baselines recordings logs intel-packages; do
 done
 
 for script in capture-baseline.sh emcon-on.sh emcon-off.sh; do
+    # shellcheck disable=SC2088  # tilde is display text only
     if [[ -x "$HOME/SIGINT/$script" ]]; then
         ok "~/SIGINT/$script (executable)"
         PASS=$((PASS+1))

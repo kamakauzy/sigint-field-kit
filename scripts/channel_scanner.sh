@@ -42,7 +42,7 @@ echo "════════════════════════�
 echo ""
 
 RESULTS_FILE="/tmp/scanner_results_$$.txt"
-> "$RESULTS_FILE"
+: > "$RESULTS_FILE"
 
 for freq_mhz in "${FREQS[@]}"; do
     freq_hz=$(echo "$freq_mhz * 1000000" | bc | cut -d. -f1)
@@ -54,7 +54,7 @@ for freq_mhz in "${FREQS[@]}"; do
     timeout "$DWELL" rtl_fm -f "$freq_hz" -M fm -s "$SAMPLE_RATE" -g "$GAIN" \
         -l 0 -p 0 -d "$DEVICE" "$raw" 2>/dev/null || true
     
-    if [ ! -f "$raw" ] || [ $(stat -c%s "$raw" 2>/dev/null || echo 0) -lt 2400 ]; then
+    if [ ! -f "$raw" ] || [ "$(stat -c%s "$raw" 2>/dev/null || echo 0)" -lt 2400 ]; then
         echo "$freq_mhz DEAD 0 0 0" >> "$RESULTS_FILE"
         printf "  %9s MHz: DEAD (no output)\n" "$freq_mhz"
         rm -f "$raw"
