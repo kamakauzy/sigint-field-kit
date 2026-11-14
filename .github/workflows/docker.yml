@@ -1,0 +1,36 @@
+name: Docker verify
+
+on:
+  push:
+    branches: [master, main]
+    paths: ['Dockerfile', 'install.sh', 'verify-setup.sh', 'uninstall.sh', 'scripts/**', 'tools/**', '.github/workflows/docker.yml']
+  pull_request:
+    branches: [master, main]
+    paths: ['Dockerfile', 'install.sh', 'verify-setup.sh', 'uninstall.sh', 'scripts/**', 'tools/**', '.github/workflows/docker.yml']
+  workflow_dispatch:
+
+jobs:
+  docker-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      # Fails if install.sh (rx-only, --skip-update) fails or freq_db.sqlite is missing
+      - name: Build image
+        run: docker build -t sigint-field-kit-test .
+
+      # The installer runs as root inside the image, so verify as root too (HOME=/root).
+      # Expected WARN/FAIL set: SDR++ (no apt package on Ubuntu; source build may not
+      # succeed in a container). Any other failed check fails the job.
+      - name: Run verify-setup.sh
+        run: |
+          set +e
+          docker run --rm --user root sigint-field-kit-test ./verify-setup.sh | tee verify.log
+          unexpected=$(grep '✗' verify.log | grep -v 'SDR++' || true)
+          if [[ -n "$unexpected" ]]; then
+            echo "::error::Unexpected verify-setup failures:"
+            echo "$unexpected"
+            exit 1
+          fi
+        shell: bash
