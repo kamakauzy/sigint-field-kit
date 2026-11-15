@@ -32,6 +32,13 @@ import re
 import sqlite3
 import sys
 from collections import defaultdict
+
+from bearing_math import (
+    angular_distance_deg,
+    circular_mean_deg,
+    circular_std_deg,
+    normalize_deg,
+)
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -151,19 +158,34 @@ def cluster_bearings(bearings, tolerance_deg=10):
     """
     Cluster bearing angles that are within tolerance of each other.
     Returns list of (mean_bearing, count, stddev, bearings_in_cluster).
+
+    Wrap-aware: 358 and 2 are 4 degrees apart and land in one cluster even
+    when other emitters sit between them in linear (0..360) order.
     """
     if not bearings:
         return []
 
-    sorted_b = sorted(bearings, key=lambda x: x["bearing_deg"])
+    sorted_b = sorted(bearings, key=lambda x: normalize_deg(x["bearing_deg"]))
+    n = len(sorted_b)
+
+    # Start the sweep just after the widest gap around the circle, so a
+    # cluster straddling north is never cut in two at the 0/360 seam.
+    if n > 1:
+        gaps = [
+            (normalize_deg(sorted_b[(i + 1) % n]["bearing_deg"])
+             - normalize_deg(sorted_b[i]["bearing_deg"])) % 360.0
+            for i in range(n)
+        ]
+        widest = max(range(n), key=lambda k: gaps[k])
+        start = (widest + 1) % n
+        sorted_b = sorted_b[start:] + sorted_b[:start]
+
     clusters = []
     current = [sorted_b[0]]
 
-    for i in range(1, len(sorted_b)):
-        # Handle 360/0 wraparound
-        diff = abs(sorted_b[i]["bearing_deg"] - current[-1]["bearing_deg"])
-        if diff > 180:
-            diff = 360 - diff
+    for i in range(1, n):
+        diff = angular_distance_deg(sorted_b[i]["bearing_deg"],
+                                    current[-1]["bearing_deg"])
         if diff <= tolerance_deg:
             current.append(sorted_b[i])
         else:
@@ -174,17 +196,13 @@ def cluster_bearings(bearings, tolerance_deg=10):
     results = []
     for cluster in clusters:
         angles = [b["bearing_deg"] for b in cluster]
-        # Circular mean
-        sin_sum = sum(math.sin(math.radians(a)) for a in angles)
-        cos_sum = sum(math.cos(math.radians(a)) for a in angles)
-        mean_deg = math.degrees(math.atan2(sin_sum, cos_sum)) % 360
-
-        # Circular standard deviation
-        R = math.sqrt(sin_sum**2 + cos_sum**2) / len(angles)
-        std_deg = math.degrees(math.sqrt(-2 * math.log(max(R, 1e-10)))) if R < 1 else 0
+        mean_deg = circular_mean_deg(angles)
+        if mean_deg is None:  # only possible for degenerate input
+            mean_deg = normalize_deg(angles[0])
+        std_deg = circular_std_deg(angles)
 
         results.append({
-            "mean_bearing": round(mean_deg, 1),
+            "mean_bearing": round(mean_deg, 1) % 360,
             "count": len(cluster),
             "std_dev": round(std_deg, 1),
             "bearings": cluster,

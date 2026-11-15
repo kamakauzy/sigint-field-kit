@@ -23,6 +23,8 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
+from bearing_math import circular_mean_deg, circular_range_deg
+
 
 def parse_bursts_csv(filepath):
     """Parse burst_detector.py output CSV."""
@@ -290,7 +292,14 @@ def generate_report(bursts, alerts, bearings, baseline_diff_text, args):
             for f, c in multi.items():
                 fb = [b for b in bearings if b["freq"] == f and b["bearing"] is not None]
                 bearing_vals = [b["bearing"] for b in fb]
-                lines.append(f"  - {f} MHz: {c} bearings ({min(bearing_vals):.0f}° – {max(bearing_vals):.0f}°)")
+                if not bearing_vals:
+                    lines.append(f"  - {f} MHz: {c} bearings (no valid bearing values)")
+                    continue
+                # Wrap-aware: 358° and 2° span 4°, not "2° – 358°".
+                lo, hi, width = circular_range_deg(bearing_vals)
+                mean = circular_mean_deg(bearing_vals)
+                mean_str = f"mean {mean:.0f}°, " if mean is not None else ""
+                lines.append(f"  - {f} MHz: {c} bearings ({mean_str}{lo:.0f}° – {hi:.0f}°, spread {width:.0f}°)")
             lines.append("")
 
         lines.append("---")
